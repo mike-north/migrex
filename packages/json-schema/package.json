@@ -29,11 +29,16 @@
     "api:check": "api-extractor run",
     "api:update": "api-extractor run --local"
   },
+  "dependencies": {
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.0"
+  },
   "peerDependencies": {
     "@migrex/core": "workspace:*"
   },
   "devDependencies": {
     "@migrex/core": "workspace:*",
+    "@types/json-schema": "^7.0.15",
     "tsup": "^8.0.0",
     "@microsoft/api-extractor": "^7.48.0",
     "tsd": "^0.31.0"
