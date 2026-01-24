@@ -1,0 +1,28 @@
+{
+  "name": "@migrex/ts-plugin",
+  "version": "0.1.0",
+  "description": "TypeScript Language Service Plugin for migrex",
+  "main": "./dist/index.js",
+  "types": "./dist/ts-plugin.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "build:types": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "api:check": "api-extractor run",
+    "api:update": "api-extractor run --local"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsup": "^8.0.0",
+    "@microsoft/api-extractor": "^7.48.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

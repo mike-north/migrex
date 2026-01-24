@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    // Strict type checking
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Build configuration
+    "noEmitOnError": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Module resolution
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+
+    // Output configuration
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    // Code quality
+    "forceConsistentCasingInFileNames": true,
+    "skipDefaultLibCheck": true,
+
+    // Interop - intentionally omitting esModuleInterop and allowSyntheticDefaultImports
+    // to avoid leaky library configuration
+    "isolatedModules": true,
+    "resolveJsonModule": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@migrex/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for migrex",
+  "type": "module",
+  "bin": {
+    "migrex": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/cli.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "build:types": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "api:check": "api-extractor run",
+    "api:update": "api-extractor run --local"
+  },
+  "dependencies": {
+    "@migrex/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "@microsoft/api-extractor": "^7.48.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

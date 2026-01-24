@@ -1,0 +1,19 @@
+# Build outputs
+dist/
+temp/*.d.ts
+temp/*.api.json
+temp/*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
+# Editor files
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

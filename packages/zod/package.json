@@ -1,0 +1,44 @@
+{
+  "name": "@migrex/zod",
+  "version": "0.1.0",
+  "description": "Zod schema plugin for migrex",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/zod.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/zod.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/zod.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "build:types": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:types": "tsd",
+    "api:check": "api-extractor run",
+    "api:update": "api-extractor run --local"
+  },
+  "peerDependencies": {
+    "@migrex/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@migrex/core": "workspace:*",
+    "tsup": "^8.0.0",
+    "@microsoft/api-extractor": "^7.48.0",
+    "tsd": "^0.31.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

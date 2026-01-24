@@ -1,0 +1,16 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@migrex/cli": "0.1.0",
+    "@migrex/core": "0.1.0",
+    "@migrex/eslint-plugin": "0.1.0",
+    "@migrex/files": "0.1.0",
+    "@migrex/json-schema": "0.1.0",
+    "@migrex/rest": "0.1.0",
+    "@migrex/testing": "0.1.0",
+    "@migrex/ts-plugin": "0.1.0",
+    "@migrex/zod": "0.1.0"
+  },
+  "changesets": []
+}

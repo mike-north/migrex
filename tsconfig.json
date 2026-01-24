@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/zod" },
+    { "path": "packages/json-schema" },
+    { "path": "packages/rest" },
+    { "path": "packages/files" },
+    { "path": "packages/ts-plugin" },
+    { "path": "packages/eslint-plugin" },
+    { "path": "packages/cli" },
+    { "path": "packages/testing" }
+  ]
+}
