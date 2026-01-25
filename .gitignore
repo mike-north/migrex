@@ -146,7 +146,9 @@ vite.config.ts.timestamp-*
 
 # API Extractor temp files (should be gitignored)
 packages/*/temp/*.d.ts
+packages/*/temp/*.d.ts.map
 packages/*/temp/*.api.json
+packages/*/temp/*.api.md
 
 # Keep temp directory itself
 !packages/*/temp/.gitkeep
