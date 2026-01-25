@@ -14,8 +14,16 @@ const config: KnipConfig = {
     },
   },
   ignoreDependencies: [
-    // Add any dependencies that are used but KNIP can't detect
+    // Build tools used via scripts, not directly imported
+    '@microsoft/api-extractor',
+    'tsd',
+    // ESLint is a peer dep for eslint-plugin packages
+    'eslint',
+    // Peer dependencies that are used at runtime
+    '@migrex/core',
   ],
+  // These types are exported for library consumers
+  ignoreExportsUsedInFile: true,
 };
 
 export default config;
