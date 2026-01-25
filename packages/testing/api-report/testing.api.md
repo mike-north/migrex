@@ -4,34 +4,47 @@
 
 ```ts
 
+import type { AnyMigration } from '@migrex/core';
+import type { FieldProfile } from '@migrex/core';
+import type { MigrationContext } from '@migrex/core';
+import type { MigrationGraph } from '@migrex/core';
 import type { MigrationResult } from '@migrex/core';
 
 // @public
-export function assertConnected(_graph: unknown): void;
+export function assertConnected(graph: MigrationGraph): void;
 
 // @public
-export function assertFieldProfile(_graph: unknown, _field: string, _expectedProfile: 'always-single' | 'sometimes-multi'): void;
+export function assertFieldProfile(graph: MigrationGraph, field: string, expectedProfile: FieldProfile): void;
 
 // @public
 export function assertLossless<T>(result: MigrationResult<T>): void;
 
 // @public
-export function assertNoDeprecatedPaths(_graph: unknown): void;
+export function assertNoDeprecatedPaths(graph: MigrationGraph): void;
 
 // @public
-export function createTestFixture(_options: {
+export function createTestFixture<T = unknown>(options: {
     version: string;
-    data: unknown;
-}): never;
+    data: T;
+}): TestFixture<T>;
+
+// @beta
+export function generateTestData(_schema: unknown): Record<string, never>;
 
 // @public
-export function generateTestData(_schema: unknown): never;
+export interface TestFixture<T = unknown> {
+    readonly data: T;
+    readonly version: string;
+}
 
 // @public
-export function testPipeline(_migrations: readonly unknown[]): {
-    _profile: Record<string, "always-single" | "sometimes-multi">;
-    getProfile(): {};
-    execute(_input: unknown, _callback?: (ctx: unknown) => void): never;
-};
+export interface TestPipeline<TProfile extends Record<string, FieldProfile>> {
+    execute<TInput, TOutput>(input: TInput, callback?: (ctx: MigrationContext) => void): TOutput;
+    getProfile(): TProfile;
+    readonly _profile: TProfile;
+}
+
+// @public
+export function testPipeline<TProfile extends Record<string, FieldProfile> = Record<string, FieldProfile>>(migrations: readonly AnyMigration<unknown, unknown>[]): TestPipeline<TProfile>;
 
 ```

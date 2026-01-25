@@ -4,16 +4,71 @@
 
 ```ts
 
-// @public
-export function createVersionedMiddleware(_graph: unknown, _options?: unknown): (_req: unknown, _res: unknown, next: () => void) => void;
+import type { MigrationGraph } from '@migrex/core';
 
 // @public
-export function extractVersionFromHeader(_headerName: string): (_req: unknown) => string | undefined;
+export function createVersionedEndpoint(graph: MigrationGraph, options: VersionedEndpointOptions): {
+    parseRequest<T>(req: Request_2, targetVersion: string): {
+        version: string;
+        body: T;
+    };
+    sendResponse<T>(res: Response_2, data: T, requestedVersion: string, currentVersion: string): void;
+    getRequestedVersion(req: Request_2): string;
+};
 
 // @public
-export function extractVersionFromPath(_pattern: string): (_req: unknown) => string | undefined;
+export function createVersionedMiddleware(graph: MigrationGraph, options: VersionedMiddlewareOptions): MiddlewareFunction;
 
 // @public
-export function extractVersionFromQuery(_paramName: string): (_req: unknown) => string | undefined;
+export function extractVersionFromHeader(headerName: string): VersionExtractor;
+
+// @public
+export function extractVersionFromPath(pattern: string | RegExp): VersionExtractor;
+
+// @public
+export function extractVersionFromQuery(paramName: string): VersionExtractor;
+
+// @public
+export type MiddlewareFunction = (req: Request_2, res: Response_2, next: NextFunction) => void | Promise<void>;
+
+// @public
+export type NextFunction = (error?: unknown) => void;
+
+// @public
+interface Request_2 {
+    body?: unknown;
+    headers: Record<string, string | string[] | undefined>;
+    params?: Record<string, string>;
+    query?: Record<string, string | string[] | undefined>;
+    url: string;
+}
+export { Request_2 as Request }
+
+// @public
+interface Response_2 {
+    json(data: unknown): void;
+    setHeader(name: string, value: string): void;
+}
+export { Response_2 as Response }
+
+// @public
+export interface VersionedEndpointOptions {
+    defaultVersion?: string;
+    deprecationHeader?: string;
+    extractVersion: VersionExtractor;
+    warnOnLossy?: boolean;
+}
+
+// @public
+export interface VersionedMiddlewareOptions {
+    defaultVersion?: string;
+    deprecationHeader?: string;
+    extractVersion: VersionExtractor;
+    targetVersion?: string;
+    warnOnLossy?: boolean;
+}
+
+// @public
+export type VersionExtractor = (req: Request_2) => string | undefined;
 
 ```

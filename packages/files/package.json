@@ -5,6 +5,7 @@
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
     "@migrex/core": "workspace:*",
+    "@types/node": "^20.19.30",
     "tsd": "^0.31.0",
     "tsup": "^8.0.0"
   },

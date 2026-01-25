@@ -7,4 +7,6 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   outDir: 'dist',
+  splitting: false, // Ensure single bundle for ESM
+  bundle: true,
 });
