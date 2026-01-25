@@ -1,11 +1,15 @@
 {
   "name": "@migrex/core",
-  "version": "0.1.0",
   "description": "Core library for versioned data contracts with bidirectional migrations",
-  "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/core.d.ts",
+  "version": "0.1.0",
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.48.0",
+    "tsd": "^0.31.0",
+    "tsup": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "exports": {
     ".": {
       "import": {
@@ -18,23 +22,21 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "scripts": {
+    "api:check": "api-extractor run",
+    "api:update": "api-extractor run --local",
     "build": "tsup",
     "build:types": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
     "test": "vitest run",
-    "test:watch": "vitest",
     "test:types": "tsd",
-    "api:check": "api-extractor run",
-    "api:update": "api-extractor run --local"
+    "test:watch": "vitest"
   },
-  "devDependencies": {
-    "tsup": "^8.0.0",
-    "@microsoft/api-extractor": "^7.48.0",
-    "tsd": "^0.31.0"
-  },
-  "engines": {
-    "node": ">=20.0.0"
-  }
+  "type": "module",
+  "types": "./dist/core.d.ts"
 }

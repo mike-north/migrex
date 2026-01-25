@@ -1,11 +1,21 @@
 {
   "name": "@migrex/json-schema",
-  "version": "0.1.0",
   "description": "JSON Schema plugin for migrex",
-  "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/json-schema.d.ts",
+  "version": "0.1.0",
+  "dependencies": {
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.0"
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.48.0",
+    "@migrex/core": "workspace:*",
+    "@types/json-schema": "^7.0.15",
+    "tsd": "^0.31.0",
+    "tsup": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "exports": {
     ".": {
       "import": {
@@ -18,32 +28,24 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "peerDependencies": {
+    "@migrex/core": "workspace:*"
+  },
   "scripts": {
+    "api:check": "api-extractor run",
+    "api:update": "api-extractor run --local",
     "build": "tsup",
     "build:types": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
     "test": "vitest run",
-    "test:watch": "vitest",
     "test:types": "tsd",
-    "api:check": "api-extractor run",
-    "api:update": "api-extractor run --local"
+    "test:watch": "vitest"
   },
-  "dependencies": {
-    "ajv": "^8.17.0",
-    "ajv-formats": "^3.0.0"
-  },
-  "peerDependencies": {
-    "@migrex/core": "workspace:*"
-  },
-  "devDependencies": {
-    "@migrex/core": "workspace:*",
-    "@types/json-schema": "^7.0.15",
-    "tsup": "^8.0.0",
-    "@microsoft/api-extractor": "^7.48.0",
-    "tsd": "^0.31.0"
-  },
-  "engines": {
-    "node": ">=20.0.0"
-  }
+  "type": "module",
+  "types": "./dist/json-schema.d.ts"
 }
