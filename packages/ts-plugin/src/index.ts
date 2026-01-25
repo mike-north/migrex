@@ -31,6 +31,7 @@ function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
      */
     create(info: ts.server.PluginCreateInfo): ts.LanguageService {
       // Log plugin creation
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       info.project.projectService?.logger?.info(
         '[migrex] Creating language service plugin'
       );

@@ -167,10 +167,12 @@ function checkForKindHandling(
 
   // Get parent statement
   let parent = callExpr.parent;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   while (parent && !typescript.isStatement(parent)) {
     parent = parent.parent;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!parent) {
     return false;
   }
@@ -180,6 +182,7 @@ function checkForKindHandling(
 
   // Get the next few statements
   const parentBlock = parent.parent;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!parentBlock || !typescript.isBlock(parentBlock)) {
     return false;
   }

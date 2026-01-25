@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
+import { ESLintUtils, type TSESTree, AST_NODE_TYPES } from '@typescript-eslint/utils';
 import type { MigrationGraph } from '@migrex/core';
 import {
   getConsumeFieldName,
@@ -136,8 +136,8 @@ export const consumeCheck = ESLintUtils.RuleCreator.withoutDocs<
         // Also check for field?.value (optional chaining)
         if (
           node.optional &&
-          node.property.type === 'Identifier' &&
-          node.object.type === 'Identifier' &&
+          node.property.type === AST_NODE_TYPES.Identifier &&
+          node.object.type === AST_NODE_TYPES.Identifier &&
           node.object.name === 'field' &&
           node.property.name === 'value'
         ) {

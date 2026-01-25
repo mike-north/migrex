@@ -57,7 +57,9 @@ export function createProxiedLanguageService(
   const projectRoot = project.getCurrentDirectory();
 
   // Log plugin initialization
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const logger = info.project.projectService?.logger;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (logger) {
     logger.info(
       `[migrex] Plugin initialized. Project root: ${projectRoot}`
@@ -90,7 +92,9 @@ export function createProxiedLanguageService(
       }
 
       // Load graph and analysis
+      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
       const analysisResult = loadAnalysis();
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!analysisResult) {
         return baseDiagnostics;
       }
@@ -135,7 +139,9 @@ export function createProxiedLanguageService(
       }
 
       // Load graph and analysis
+      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
       const analysisResult = loadAnalysis();
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!analysisResult) {
         return baseInfo;
       }

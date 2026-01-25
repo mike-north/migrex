@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { ESLintUtils } from '@typescript-eslint/utils';
+import { ESLintUtils, AST_NODE_TYPES } from '@typescript-eslint/utils';
 import {
   getPreserveFieldName,
   hasPreserveMetadata,
@@ -114,12 +114,12 @@ export const preserveMetadata = ESLintUtils.RuleCreator.withoutDocs<
         // Check if required fields are present in metadata
         if (hasMetadata && requiredFields.length > 0) {
           const metadataArg = node.arguments[2];
-          if (metadataArg?.type === 'ObjectExpression') {
+          if (metadataArg?.type === AST_NODE_TYPES.ObjectExpression) {
             const presentFields = new Set<string>();
             for (const prop of metadataArg.properties) {
               if (
-                prop.type === 'Property' &&
-                prop.key.type === 'Identifier'
+                prop.type === AST_NODE_TYPES.Property &&
+                prop.key.type === AST_NODE_TYPES.Identifier
               ) {
                 presentFields.add(prop.key.name);
               }

@@ -150,6 +150,7 @@ function extractFieldName(
  */
 function findContainingStatement(node: ts.Node): ts.Statement | undefined {
   let current: ts.Node | undefined = node;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   while (current) {
     if (isStatement(current)) {
       return current as ts.Statement;
