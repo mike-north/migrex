@@ -29,17 +29,17 @@ export const configs: {
   recommended: {
     plugins: {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      '@migrex': { rules } as unknown as Linter.Plugin,
+      '@migrex': { rules } as unknown,
     },
     ...recommended,
-  },
+  } as unknown as Linter.Config,
   strict: {
     plugins: {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      '@migrex': { rules } as unknown as Linter.Plugin,
+      '@migrex': { rules } as unknown,
     },
     ...strict,
-  },
+  } as unknown as Linter.Config,
 };
 
 /**
