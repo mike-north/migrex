@@ -1,5 +1,5 @@
 /**
- * @migrex/core - Core library for versioned data contracts with bidirectional migrations
+ * \@migrex/core - Core library for versioned data contracts with bidirectional migrations
  *
  * @packageDocumentation
  */

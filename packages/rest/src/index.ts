@@ -1,5 +1,5 @@
 /**
- * @migrex/rest - REST API integration for migrex
+ * \@migrex/rest - REST API integration for migrex
  *
  * This package provides middleware and utilities for versioned REST APIs.
  *

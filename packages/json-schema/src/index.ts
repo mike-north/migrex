@@ -1,5 +1,5 @@
 /**
- * @migrex/json-schema - JSON Schema plugin for migrex
+ * \@migrex/json-schema - JSON Schema plugin for migrex
  *
  * This package provides integration between migrex and JSON Schema,
  * allowing you to use JSON Schema definitions as versioned schemas in your migration graph.

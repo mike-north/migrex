@@ -1,5 +1,5 @@
 /**
- * @migrex/testing - Test utilities for migrex
+ * \@migrex/testing - Test utilities for migrex
  *
  * This package provides helpers for testing migration graphs and pipelines.
  *

@@ -1,5 +1,5 @@
 /**
- * @migrex/zod - Zod schema plugin for migrex
+ * \@migrex/zod - Zod schema plugin for migrex
  *
  * This package provides integration between migrex and Zod schemas,
  * allowing you to use Zod schemas as versioned schemas in your migration graph.

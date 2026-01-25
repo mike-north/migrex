@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @migrex/cli - Command-line interface for migrex
+ * \@migrex/cli - Command-line interface for migrex
  *
  * Placeholder implementation. TODO: Implement full CLI.
  *

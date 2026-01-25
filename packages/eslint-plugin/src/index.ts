@@ -1,5 +1,5 @@
 /**
- * @migrex/eslint-plugin - ESLint plugin for migrex
+ * \@migrex/eslint-plugin - ESLint plugin for migrex
  *
  * This plugin provides ESLint rules for migrex migration code.
  *

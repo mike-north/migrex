@@ -1,5 +1,5 @@
 /**
- * @migrex/ts-plugin - TypeScript Language Service Plugin for migrex
+ * \@migrex/ts-plugin - TypeScript Language Service Plugin for migrex
  *
  * This plugin provides IDE integration for migrex, including:
  * - Diagnostics for consume() calls
