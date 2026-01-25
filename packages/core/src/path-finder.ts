@@ -87,8 +87,8 @@ function buildMigrationPath(
   let hasDown = false;
 
   for (let i = 0; i < versionPath.length - 1; i++) {
-    const fromVersion = versionPath[i];
-    const toVersion = versionPath[i + 1];
+    const fromVersion = versionPath[i]!;
+    const toVersion = versionPath[i + 1]!;
     const key = getMigrationKey(fromVersion, toVersion);
     const migration = migrations.get(key);
 

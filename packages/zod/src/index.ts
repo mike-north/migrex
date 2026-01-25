@@ -111,9 +111,9 @@ export function fromZod<T>(
       };
     },
 
-    validate: options?.validate,
-    deprecated: options?.deprecated,
-    releaseDate: options?.releaseDate,
+    ...(options?.validate !== undefined && { validate: options.validate }),
+    ...(options?.deprecated !== undefined && { deprecated: options.deprecated }),
+    ...(options?.releaseDate !== undefined && { releaseDate: options.releaseDate }),
   };
 }
 

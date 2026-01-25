@@ -25,7 +25,9 @@ export class MigrationError extends Error {
     super(message);
     this.name = 'MigrationError';
     this.code = code;
-    this.details = details;
+    if (details !== undefined) {
+      this.details = details;
+    }
 
     // Maintain proper prototype chain for instanceof checks
     Object.setPrototypeOf(this, new.target.prototype);

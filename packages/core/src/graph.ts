@@ -11,6 +11,7 @@ import type {
   BatchMigrateOptions,
   BatchMigrationResult,
   MigrationTelemetry,
+  ValidationResult,
 } from './types.js';
 import {
   NoPathError,
@@ -144,7 +145,9 @@ class MigrationGraphImpl implements MigrationGraph {
   constructor(options: MigrationGraphOptions) {
     this.id = options.id;
     this.versionStrategy = options.versionStrategy;
-    this.telemetry = options.telemetry;
+    if (options.telemetry) {
+      this.telemetry = options.telemetry;
+    }
   }
 
   registerSchema<T>(schema: VersionedSchema<T>): void {
@@ -307,7 +310,7 @@ class MigrationGraphImpl implements MigrationGraph {
     // Execute migrations
     let currentData = data;
     for (let i = 0; i < path.steps.length; i++) {
-      const step = path.steps[i];
+      const step = path.steps[i]!;
       context.setCurrentStep({
         from: step.fromVersion,
         to: step.toVersion,
@@ -392,7 +395,7 @@ class MigrationGraphImpl implements MigrationGraph {
           path,
           stash: context.getSummary(),
           preservedFields: context.getPreservedFields(),
-          validation: validation as MigrationResult<T>['validation'],
+          validation: validation as ValidationResult<T>,
           error,
         };
 
@@ -417,7 +420,7 @@ class MigrationGraphImpl implements MigrationGraph {
             path,
             stash: context.getSummary(),
             preservedFields: context.getPreservedFields(),
-            validation: validation as MigrationResult<T>['validation'],
+            validation: validation as ValidationResult<T>,
             error,
           };
 
@@ -435,9 +438,9 @@ class MigrationGraphImpl implements MigrationGraph {
       success: true,
       data: currentData as T,
       path,
-      validation: validation as MigrationResult<T>['validation'],
       stash: context.getSummary(),
       preservedFields: context.getPreservedFields(),
+      ...(validation !== undefined && { validation: validation as ValidationResult<T> }),
     };
 
     const totalDuration = performance.now() - startTime;
@@ -514,7 +517,7 @@ class MigrationGraphImpl implements MigrationGraph {
     // Execute migrations (awaiting each step)
     let currentData = data;
     for (let i = 0; i < path.steps.length; i++) {
-      const step = path.steps[i];
+      const step = path.steps[i]!;
       context.setCurrentStep({
         from: step.fromVersion,
         to: step.toVersion,
@@ -596,7 +599,7 @@ class MigrationGraphImpl implements MigrationGraph {
           path,
           stash: context.getSummary(),
           preservedFields: context.getPreservedFields(),
-          validation: validation as MigrationResult<T>['validation'],
+          validation: validation as ValidationResult<T>,
           error: new SchemaValidationError(
             normalizedTo,
             validation.errors ?? []
@@ -615,7 +618,7 @@ class MigrationGraphImpl implements MigrationGraph {
             path,
             stash: context.getSummary(),
             preservedFields: context.getPreservedFields(),
-            validation: validation as MigrationResult<T>['validation'],
+            validation: validation as ValidationResult<T>,
             error: new SchemaValidationError(
               normalizedTo,
               validation.errors ?? []
@@ -633,9 +636,9 @@ class MigrationGraphImpl implements MigrationGraph {
       success: true,
       data: currentData as T,
       path,
-      validation: validation as MigrationResult<T>['validation'],
       stash: context.getSummary(),
       preservedFields: context.getPreservedFields(),
+      ...(validation !== undefined && { validation: validation as ValidationResult<T> }),
     };
 
     const totalDuration = performance.now() - startTime;

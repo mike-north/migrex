@@ -59,12 +59,12 @@ export const semverStrategy: VersionStrategy = {
 
     return {
       parts: [
-        parseInt(match[1], 10),
-        parseInt(match[2], 10),
-        parseInt(match[3], 10),
+        parseInt(match[1]!, 10),
+        parseInt(match[2]!, 10),
+        parseInt(match[3]!, 10),
       ],
-      prerelease: match[4] ?? undefined,
-      build: match[5] ?? undefined,
+      ...(match[4] !== undefined && { prerelease: match[4] }),
+      ...(match[5] !== undefined && { build: match[5] }),
     };
   },
 
@@ -85,7 +85,7 @@ export const semverStrategy: VersionStrategy = {
         if (parsed.prerelease) {
           // Increment existing prerelease
           const parts = parsed.prerelease.split('.');
-          const lastPart = parts[parts.length - 1];
+          const lastPart = parts[parts.length - 1]!;
           const num = parseInt(lastPart, 10);
           if (!isNaN(num)) {
             parts[parts.length - 1] = String(num + 1);

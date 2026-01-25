@@ -29,8 +29,8 @@ export class PreservationStash {
             values: [
               {
                 value: field.value,
-                event: field.history[0],
-                metadata: field.metadata,
+                event: field.history[0]!,
+                ...(field.metadata !== undefined && { metadata: field.metadata }),
               },
             ],
           };
@@ -41,7 +41,7 @@ export class PreservationStash {
             values: field.entries.map((e) => ({
               value: e.value,
               event: e.event,
-              metadata: e.metadata,
+              ...(e.metadata !== undefined && { metadata: e.metadata }),
             })),
           };
           this.fields.set(field.path, internal);
@@ -65,8 +65,8 @@ export class PreservationStash {
       version: currentStep.version,
       direction: currentStep.direction,
       stepIndex: currentStep.index,
-      metadata,
       timestamp: Date.now(),
+      ...(metadata !== undefined && { metadata }),
     };
 
     const existing = this.fields.get(field);
@@ -75,7 +75,7 @@ export class PreservationStash {
       // New preservation
       const preserved: InternalPreservedField = {
         path: field,
-        values: [{ value, event, metadata }],
+        values: [{ value, event, ...(metadata !== undefined && { metadata }) }],
       };
       this.fields.set(field, preserved);
       this.eventLog.push(event);
@@ -87,7 +87,7 @@ export class PreservationStash {
     }
 
     // Check if value is equivalent
-    const lastValue = existing.values[existing.values.length - 1].value;
+    const lastValue = existing.values[existing.values.length - 1]!.value;
     if (this.valuesEquivalent(lastValue, value)) {
       // Idempotent - same value already preserved
       return {
@@ -102,7 +102,7 @@ export class PreservationStash {
       ...event,
       type: 're-preserved',
     };
-    existing.values.push({ value, event: rePreserveEvent, metadata });
+    existing.values.push({ value, event: rePreserveEvent, ...(metadata !== undefined && { metadata }) });
     this.eventLog.push(rePreserveEvent);
 
     return {
@@ -201,14 +201,14 @@ export class PreservationStash {
 
     for (const field of this.fields.values()) {
       const history = field.values.flatMap((v) => [v.event]);
-      const preservedAt = field.values[0].event.version;
+      const preservedAt = field.values[0]!.event.version;
 
       if (field.consumed) {
         consumed.push({
           path: field.path,
           preservedAt,
-          consumedAt: field.consumedAt,
           history,
+          ...(field.consumedAt !== undefined && { consumedAt: field.consumedAt }),
         });
       } else {
         unconsumed.push({
@@ -255,13 +255,13 @@ export class PreservationStash {
    */
   private toPreservedField(internal: InternalPreservedField): PreservedField {
     if (internal.values.length === 1) {
-      const entry = internal.values[0];
+      const entry = internal.values[0]!;
       const single: SingleValuePreservation = {
         kind: 'single',
         path: internal.path,
         value: entry.value,
         history: [entry.event],
-        metadata: entry.metadata,
+        ...(entry.metadata !== undefined && { metadata: entry.metadata }),
       };
       return single;
     }
@@ -272,7 +272,7 @@ export class PreservationStash {
       entries: internal.values.map((v) => ({
         value: v.value,
         event: v.event,
-        metadata: v.metadata,
+        ...(v.metadata !== undefined && { metadata: v.metadata }),
       })),
       valuesEquivalent: this.allValuesEquivalent(
         internal.values.map((v) => v.value)

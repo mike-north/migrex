@@ -7,9 +7,10 @@
  * @packageDocumentation
  */
 
-import Ajv from 'ajv';
-import type { ErrorObject, Options as AjvOptions, ValidateFunction } from 'ajv';
-import addFormats from 'ajv-formats';
+import { Ajv } from 'ajv';
+import type { ErrorObject, Options as AjvOptions, ValidateFunction, AnySchema } from 'ajv';
+import * as addFormatsModule from 'ajv-formats';
+import type { FormatsPlugin } from 'ajv-formats';
 import type {
   VersionedSchema,
   ValidationResult,
@@ -17,6 +18,15 @@ import type {
   FieldSchema,
 } from '@migrex/core';
 import type { JSONSchema7 } from 'json-schema';
+
+// Handle ajv-formats ESM/CJS interop - it only has a default export
+// Cast the namespace import to access the default export without esModuleInterop
+const addFormats: FormatsPlugin = (
+  addFormatsModule as unknown as { default: FormatsPlugin }
+).default;
+
+/** Type alias for Ajv instance */
+type AjvInstance = InstanceType<typeof Ajv>;
 
 /**
  * Re-export JSONSchema7 type for convenience.
@@ -111,7 +121,7 @@ export interface JsonSchemaPlugin {
   /**
    * The underlying Ajv instance.
    */
-  readonly ajv: Ajv;
+  readonly ajv: AjvInstance;
 
   /**
    * Create a versioned schema from a JSON Schema.
@@ -158,9 +168,7 @@ export interface JsonSchemaPlugin {
 export function createJsonSchemaPlugin(
   options?: JsonSchemaPluginOptions
 ): JsonSchemaPlugin {
-  // Ajv types are complex due to module structure - using type assertions
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const ajv: Ajv = new Ajv({
+  const ajv: AjvInstance = new Ajv({
     allErrors: true,
     strict: true,
     ...options?.ajvOptions,
@@ -174,7 +182,6 @@ export function createJsonSchemaPlugin(
   return {
     id: 'json-schema',
     name: 'JSON Schema Plugin',
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     ajv,
 
     fromJsonSchema<T = unknown>(
@@ -182,8 +189,8 @@ export function createJsonSchemaPlugin(
       schema: JSONSchema7,
       opts?: FromJsonSchemaOptions<T>
     ): VersionedSchema<T> {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const validate: ValidateFunction<T> = ajv.compile<T>(schema);
+      // JSONSchema7 is compatible with Ajv's AnySchema at runtime
+      const validate: ValidateFunction<T> = ajv.compile<T>(schema as AnySchema);
 
       return {
         version,
@@ -204,9 +211,9 @@ export function createJsonSchemaPlugin(
           };
         },
 
-        validate: opts?.validate,
-        deprecated: opts?.deprecated,
-        releaseDate: opts?.releaseDate,
+        ...(opts?.validate !== undefined && { validate: opts.validate }),
+        ...(opts?.deprecated !== undefined && { deprecated: opts.deprecated }),
+        ...(opts?.releaseDate !== undefined && { releaseDate: opts.releaseDate }),
       };
     },
 
@@ -214,8 +221,8 @@ export function createJsonSchemaPlugin(
       schema: JSONSchema7,
       opts?: { description?: string }
     ): FieldSchema {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const validate: ValidateFunction = ajv.compile(schema);
+      // JSONSchema7 is compatible with Ajv's AnySchema at runtime
+      const validate: ValidateFunction = ajv.compile(schema as AnySchema);
 
       return {
         validate(value: unknown): ValidationResult<unknown> {

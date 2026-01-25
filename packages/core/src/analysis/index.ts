@@ -128,6 +128,7 @@ function analyzeConnectivity(
     return {
       fullyConnected: true,
       components: [],
+      unreachablePairs: [],
     };
   }
 
@@ -177,16 +178,19 @@ function analyzeConnectivity(
   const fullyConnected = components.length === 1;
 
   // Find unreachable pairs if not fully connected
-  let unreachablePairs: { from: string; to: string }[] | undefined;
+  const unreachablePairs: { from: string; to: string }[] = [];
   if (!fullyConnected) {
-    unreachablePairs = [];
     for (let i = 0; i < components.length; i++) {
       for (let j = i + 1; j < components.length; j++) {
+        const comp1 = components[i]![0];
+        const comp2 = components[j]![0];
         // Just report first pair from each component pair
-        unreachablePairs.push({
-          from: components[i][0],
-          to: components[j][0],
-        });
+        if (comp1 !== undefined && comp2 !== undefined) {
+          unreachablePairs.push({
+            from: comp1,
+            to: comp2,
+          });
+        }
       }
     }
   }
@@ -286,16 +290,17 @@ function generateDiagnostics(
 
   // Check for disconnected graph
   if (!connectivity.fullyConnected) {
+    const problematicPaths = connectivity.unreachablePairs.map((p) => ({
+      from: p.from,
+      to: p.to,
+      steps: -1, // No path exists
+    }));
     diagnostics.push({
       severity: 'error',
       code: 'DISCONNECTED_VERSIONS',
       message: `Graph has ${String(connectivity.components.length)} disconnected components`,
       details: {
-        problematicPaths: connectivity.unreachablePairs?.map((p) => ({
-          from: p.from,
-          to: p.to,
-          steps: -1, // No path exists
-        })),
+        problematicPaths,
       },
     });
   }
@@ -476,15 +481,19 @@ export function suggestMigrations(
   // Suggest bridges between disconnected components
   if (!connectivity.fullyConnected && connectivity.components.length > 1) {
     for (let i = 0; i < connectivity.components.length - 1; i++) {
-      const comp1 = connectivity.components[i];
-      const comp2 = connectivity.components[i + 1];
+      const comp1 = connectivity.components[i]!;
+      const comp2 = connectivity.components[i + 1]!;
+      const from = comp1[0];
+      const to = comp2[0];
 
-      suggestions.push({
-        from: comp1[0],
-        to: comp2[0],
-        reason: 'bridges_components',
-        currentPathLength: -1, // No path exists
-      });
+      if (from !== undefined && to !== undefined) {
+        suggestions.push({
+          from,
+          to,
+          reason: 'bridges_components',
+          currentPathLength: -1, // No path exists
+        });
+      }
     }
   }
 
