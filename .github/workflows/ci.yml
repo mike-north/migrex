@@ -33,11 +33,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Update API surface
+        run: pnpm api:update
+
       - name: Build type declarations
         run: pnpm build:types
-
-      - name: Check API surface
-        run: pnpm api:check
 
       - name: Type check
         run: pnpm typecheck
@@ -53,3 +53,6 @@ jobs:
 
       - name: Check dependency versions
         run: pnpm syncpack:check
+
+      - name: Check API surface
+        run: pnpm api:check
