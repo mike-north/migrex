@@ -36,7 +36,7 @@ export function getGraphAnalysis(
     const analysis = analyzeGraph(graph);
     analysisCache.set(graph, analysis);
     return analysis;
-  } catch (_error) {
+  } catch {
     // If analysis fails, return undefined
     // The graph-health rule will handle reporting this
     return undefined;

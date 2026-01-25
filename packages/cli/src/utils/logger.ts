@@ -32,10 +32,8 @@ function supportsColor(): boolean {
     return true;
   }
   // isTTY can be undefined in non-TTY environments
-  if (process.stdout.isTTY === undefined) {
-    return false;
-  }
-  return process.stdout.isTTY;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  return process.stdout.isTTY ?? false;
 }
 
 const useColor = supportsColor();

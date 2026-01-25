@@ -260,8 +260,8 @@ export function formatMigrationPath(path: MigrationPath): string {
     return lines.join('\n');
   }
 
-  const from = path.steps[0]!.fromVersion;
-  const to = path.steps[path.steps.length - 1]!.toVersion;
+  const from = path.steps[0].fromVersion;
+  const to = path.steps[path.steps.length - 1].toVersion;
 
   lines.push(`Path from ${from} to ${to}:`);
   lines.push(`  Steps: ${path.steps.length}`);

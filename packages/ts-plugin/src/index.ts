@@ -31,7 +31,7 @@ function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
      */
     create(info: ts.server.PluginCreateInfo): ts.LanguageService {
       // Log plugin creation
-      info.project.projectService?.logger.info(
+      info.project.projectService?.logger?.info(
         '[migrex] Creating language service plugin'
       );
 

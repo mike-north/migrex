@@ -134,12 +134,13 @@ export const consumeCheck = ESLintUtils.RuleCreator.withoutDocs<
         }
 
         // Also check for field?.value (optional chaining)
-        if (node.optional && node.property.type === 'Identifier') {
-          if (
-            node.object.type === 'Identifier' &&
-            node.object.name === 'field' &&
-            node.property.name === 'value'
-          ) {
+        if (
+          node.optional &&
+          node.property.type === 'Identifier' &&
+          node.object.type === 'Identifier' &&
+          node.object.name === 'field' &&
+          node.property.name === 'value'
+        ) {
             const hasCheck = isWithinKindCheck(node, 'field');
             if (!hasCheck) {
               context.report({

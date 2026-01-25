@@ -28,10 +28,10 @@ export class GraphLoader {
    * @param projectRoot - Absolute path to project root directory
    * @returns Load result with graph or error
    */
-  async load(
+  load(
     graphPath: string,
     projectRoot: string
-  ): Promise<GraphLoadResult> {
+  ): GraphLoadResult {
     // Return cached graph if path hasn't changed
     if (this.cachedGraph && this.cachedPath === graphPath) {
       return { success: true, graph: this.cachedGraph };
@@ -49,7 +49,7 @@ export class GraphLoader {
       // Dynamic import of the graph module
       // TypeScript plugins run in Node.js, so we can use require
       // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-      const module = (globalThis as typeof globalThis & { require: NodeRequire }).require(absolutePath) as unknown;
+      const module = (globalThis as typeof globalThis & { require: NodeJS.Require }).require(absolutePath) as unknown;
 
       // Extract graph from module
       const graph = this.extractGraph(module);
@@ -79,16 +79,6 @@ export class GraphLoader {
     this.cachedGraph = undefined;
     this.cachedPath = undefined;
     this.loadError = undefined;
-
-    // Clear require cache for the loaded module
-    if (this.cachedPath) {
-      const absolutePath = path.resolve(
-        (globalThis as typeof globalThis & { process: NodeJS.Process }).process.cwd(),
-        this.cachedPath
-      );
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete, @typescript-eslint/no-require-imports
-      delete (globalThis as typeof globalThis & { require: NodeRequire }).require.cache[absolutePath];
-    }
   }
 
   /**

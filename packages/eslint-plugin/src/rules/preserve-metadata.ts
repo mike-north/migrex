@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
+import { ESLintUtils } from '@typescript-eslint/utils';
 import {
   getPreserveFieldName,
   hasPreserveMetadata,
@@ -114,7 +114,7 @@ export const preserveMetadata = ESLintUtils.RuleCreator.withoutDocs<
         // Check if required fields are present in metadata
         if (hasMetadata && requiredFields.length > 0) {
           const metadataArg = node.arguments[2];
-          if (metadataArg && metadataArg.type === 'ObjectExpression') {
+          if (metadataArg?.type === 'ObjectExpression') {
             const presentFields = new Set<string>();
             for (const prop of metadataArg.properties) {
               if (

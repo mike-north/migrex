@@ -28,15 +28,15 @@ export const configs: {
 } = {
   recommended: {
     plugins: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      '@migrex': { rules } as any,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      '@migrex': { rules } as unknown as Linter.Plugin,
     },
     ...recommended,
   },
   strict: {
     plugins: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      '@migrex': { rules } as any,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      '@migrex': { rules } as unknown as Linter.Plugin,
     },
     ...strict,
   },

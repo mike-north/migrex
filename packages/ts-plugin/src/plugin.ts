@@ -46,29 +46,32 @@ export function createProxiedLanguageService(
 ): ts.LanguageService {
   const config = info.config as PluginConfig;
   const base = info.languageService;
-  const host = info.languageServiceHost;
+  const _host = info.languageServiceHost;
   const project = info.project;
 
   // Initialize graph loader and analysis cache
-  const graphLoader = new GraphLoader();
-  const analysisCache = new AnalysisCache();
+  const _graphLoader = new GraphLoader();
+  const _analysisCache = new AnalysisCache();
 
   // Get project root directory
   const projectRoot = project.getCurrentDirectory();
 
   // Log plugin initialization
-  info.project.projectService?.logger.info(
-    `[migrex] Plugin initialized. Project root: ${projectRoot}`
-  );
+  const logger = info.project.projectService?.logger;
+  if (logger) {
+    logger.info(
+      `[migrex] Plugin initialized. Project root: ${projectRoot}`
+    );
 
-  if (config.graphPath) {
-    info.project.projectService?.logger.info(
-      `[migrex] Graph path configured: ${config.graphPath}`
-    );
-  } else {
-    info.project.projectService?.logger.info(
-      '[migrex] No graph path configured. Set "graphPath" in tsconfig.json plugin config.'
-    );
+    if (config.graphPath) {
+      logger.info(
+        `[migrex] Graph path configured: ${config.graphPath}`
+      );
+    } else {
+      logger.info(
+        '[migrex] No graph path configured. Set "graphPath" in tsconfig.json plugin config.'
+      );
+    }
   }
 
   // Create proxy with intercepted methods
@@ -227,8 +230,9 @@ export function createProxiedLanguageService(
     // For now, we'll skip the async load and return undefined
     // A real implementation would need to handle this differently
 
-    // Get current file version for cache validation
-    const getCurrentFileVersion = (fileName: string) => {
+    // Get current file version for cache validation (stub for future use)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _getCurrentFileVersion = (fileName: string) => {
       const scriptInfo = project.getScriptInfo(fileName);
       return scriptInfo?.getLatestVersion();
     };

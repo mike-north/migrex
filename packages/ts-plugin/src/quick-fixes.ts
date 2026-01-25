@@ -149,8 +149,8 @@ function extractFieldName(
  * Find the statement containing a node.
  */
 function findContainingStatement(node: ts.Node): ts.Statement | undefined {
-  let current = node;
-  while (current.parent) {
+  let current: ts.Node | undefined = node;
+  while (current) {
     if (isStatement(current)) {
       return current as ts.Statement;
     }
@@ -164,11 +164,10 @@ function findContainingStatement(node: ts.Node): ts.Statement | undefined {
  */
 function isStatement(node: ts.Node): boolean {
   // Check for common statement kinds
-  const statementKinds = [
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (node as any).kind >= 243 && (node as any).kind <= 260, // Statement range in TypeScript
-  ];
-  return statementKinds.some(Boolean);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const kind = (node as unknown as Record<string, unknown>).kind as number;
+  // Statement range in TypeScript: 243-260
+  return kind >= 243 && kind <= 260;
 }
 
 /**
