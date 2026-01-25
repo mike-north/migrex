@@ -33,10 +33,16 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Build type declarations
+      - name: Build type declarations for core first
+        run: cd packages/core && pnpm build:types
+
+      - name: Update API surface for core first
+        run: cd packages/core && pnpm api:update
+
+      - name: Build type declarations for all
         run: pnpm build:types
 
-      - name: Update API surface
+      - name: Update API surface for all
         run: pnpm api:update
 
       - name: Type check
