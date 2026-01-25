@@ -22,11 +22,11 @@
   ],
   "main": "./dist/index.js",
   "scripts": {
-    "check:api-report": "api-extractor run",
-    "generate:api-report": "api-extractor run --local",
     "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",
+    "check:api-report": "api-extractor run",
     "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "generate:api-report": "api-extractor run --local",
     "test": "vitest run",
     "test:watch": "vitest"
   },

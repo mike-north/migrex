@@ -2,7 +2,6 @@
   "name": "migrex-workspace",
   "description": "Migrex Workspace",
   "version": "0.0.0",
-  "type": "module",
   "author": "Mike North <michael.l.north@gmail.com>",
   "devDependencies": {
     "@api-extractor-tools/declaration-file-normalizer": "0.1.0-alpha.6",
@@ -27,19 +26,19 @@
   "packageManager": "pnpm@10.24.0",
   "private": true,
   "scripts": {
-    "check:api-report": "pnpm -r check:api-report",
-    "check:api-reports": "pnpm -r check:api-report",
-    "generate:api-report": "pnpm -r generate:api-report",
-    "generate:api-reports": "pnpm -r generate:api-report",
     "build": "pnpm -r build",
     "build:types": "pnpm -r build:types",
     "changeset": "changeset",
     "changeset:publish": "pnpm build && changeset publish",
     "changeset:version": "changeset version",
+    "check:api-report": "pnpm -r check:api-report",
+    "check:api-reports": "pnpm -r check:api-report",
     "clean": "pnpm -r clean",
     "docs": "api-documenter markdown -i packages/*/temp -o docs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "generate:api-report": "pnpm -r generate:api-report",
+    "generate:api-reports": "pnpm -r generate:api-report",
     "knip": "knip",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -50,5 +49,6 @@
     "test:types": "pnpm -r test:types",
     "typecheck": "tsc -b",
     "validate": "pnpm typecheck && pnpm lint && pnpm test:run && pnpm check:api-reports && pnpm knip"
-  }
+  },
+  "type": "module"
 }
