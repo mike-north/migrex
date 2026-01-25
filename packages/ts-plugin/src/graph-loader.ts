@@ -48,7 +48,7 @@ export class GraphLoader {
 
       // Dynamic import of the graph module
       // TypeScript plugins run in Node.js, so we can use require
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+       
       const module = (globalThis as typeof globalThis & { require: NodeJS.Require }).require(absolutePath) as unknown;
 
       // Extract graph from module

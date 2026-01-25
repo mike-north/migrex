@@ -231,7 +231,7 @@ export function createProxiedLanguageService(
     // A real implementation would need to handle this differently
 
     // Get current file version for cache validation (stub for future use)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const _getCurrentFileVersion = (fileName: string) => {
       const scriptInfo = project.getScriptInfo(fileName);
       return scriptInfo?.getLatestVersion();

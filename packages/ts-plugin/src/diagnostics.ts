@@ -185,7 +185,7 @@ function checkForKindHandling(
   }
 
   const statements = parentBlock.statements;
-  const currentIndex = statements.indexOf(parent as ts.Statement);
+  const currentIndex = statements.indexOf(parent);
   if (currentIndex === -1) {
     return false;
   }

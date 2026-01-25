@@ -164,7 +164,7 @@ function findContainingStatement(node: ts.Node): ts.Statement | undefined {
  */
 function isStatement(node: ts.Node): boolean {
   // Check for common statement kinds
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+   
   const kind = (node as unknown as Record<string, unknown>)['kind'] as number;
   // Statement range in TypeScript: 243-260
   return kind >= 243 && kind <= 260;
