@@ -4,6 +4,7 @@
   "version": "0.2.0-alpha.0",
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
+    "fast-check": "^4.5.3",
     "tsd": "^0.31.0",
     "tsup": "^8.0.0"
   },
@@ -38,5 +39,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/core.d.ts"
+  "types": "./dist/core.d.ts",
+  "dependencies": {
+    "fast-deep-equal": "^3.1.3"
+  }
 }

@@ -53,7 +53,7 @@ export async function loadGraph(
 ): Promise<LoadResult | undefined> {
   const configPath = graphPath
     ? resolve(process.cwd(), graphPath)
-    : await findConfigFile();
+    : findConfigFile();
 
   if (!configPath) {
     return undefined;
@@ -88,7 +88,7 @@ export async function loadGraph(
  * Find the config file in the current directory.
  * Searches for standard config file names in order.
  */
-async function findConfigFile(): Promise<string | undefined> {
+function findConfigFile(): string | undefined {
   const cwd = process.cwd();
 
   for (const fileName of CONFIG_FILE_NAMES) {

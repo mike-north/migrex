@@ -56,8 +56,9 @@ export function getFieldProfile(
 /**
  * Clear the analysis cache.
  * Should be called when the graph changes.
+ * @internal Kept for testing and manual cache invalidation
  */
-export function clearAnalysisCache(): void {
+export function _clearAnalysisCache(): void {
   analysisCache.clear();
 }
 

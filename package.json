@@ -2,6 +2,7 @@
   "name": "migrex-workspace",
   "description": "Migrex Workspace",
   "version": "0.0.0",
+  "type": "module",
   "author": "Mike North <michael.l.north@gmail.com>",
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",

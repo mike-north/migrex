@@ -132,8 +132,9 @@ export function hasKindCheck(
 
 /**
  * Find the enclosing function or block for a given node.
+ * @internal Kept for potential future use in rules
  */
-export function getEnclosingFunction(
+export function _getEnclosingFunction(
   node: TSESTree.Node
 ): TSESTree.FunctionLike | undefined {
   let current = node.parent;

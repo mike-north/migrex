@@ -31,7 +31,11 @@ function supportsColor(): boolean {
   if (process.env['FORCE_COLOR'] !== undefined) {
     return true;
   }
-  return process.stdout.isTTY === true;
+  // isTTY can be undefined in non-TTY environments
+  if (process.stdout.isTTY === undefined) {
+    return false;
+  }
+  return process.stdout.isTTY;
 }
 
 const useColor = supportsColor();

@@ -15,6 +15,16 @@ import {
   pathCommand,
   diffCommand,
 } from './commands/index.js';
+import type {
+  CheckOptions,
+  AnalyzeOptions,
+  GenerateTypesOptions,
+  InitOptions,
+  NewSchemaOptions,
+  NewMigrationOptions,
+  PathOptions,
+  DiffOptions,
+} from './commands/index.js';
 import { logger } from './utils/logger.js';
 
 /**
@@ -35,7 +45,7 @@ export async function runCli(args: string[]): Promise<void> {
     .option('-g, --graph <path>', 'Path to migration graph or config file')
     .option('-s, --strict', 'Treat warnings as errors')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: CheckOptions) => {
       const result = await checkCommand(options);
       process.exit(result.exitCode);
     });
@@ -46,7 +56,7 @@ export async function runCli(args: string[]): Promise<void> {
     .description('Analyze and report on graph')
     .option('-g, --graph <path>', 'Path to migration graph or config file')
     .option('-f, --format <format>', 'Output format (json or text)', 'text')
-    .action(async (options) => {
+    .action(async (options: AnalyzeOptions) => {
       const result = await analyzeCommand(options);
       process.exit(result.exitCode);
     });
@@ -57,7 +67,7 @@ export async function runCli(args: string[]): Promise<void> {
     .description('Generate TypeScript types from analysis')
     .option('-g, --graph <path>', 'Path to migration graph or config file')
     .option('-o, --output <path>', 'Output path for generated types')
-    .action(async (options) => {
+    .action(async (options: GenerateTypesOptions) => {
       const result = await generateTypesCommand(options);
       process.exit(result.exitCode);
     });
@@ -72,7 +82,7 @@ export async function runCli(args: string[]): Promise<void> {
       'zod'
     )
     .option('-v, --version <version>', 'Initial version', '1.0.0')
-    .action(async (options) => {
+    .action(async (options: InitOptions) => {
       const result = await initCommand(options);
       process.exit(result.exitCode);
     });
@@ -91,7 +101,7 @@ export async function runCli(args: string[]): Promise<void> {
       'Plugin to use (zod or json-schema)',
       'zod'
     )
-    .action(async (options) => {
+    .action(async (options: NewSchemaOptions) => {
       const result = await newSchemaCommand(options);
       process.exit(result.exitCode);
     });
@@ -106,7 +116,7 @@ export async function runCli(args: string[]): Promise<void> {
       'Plugin to use (zod or json-schema)',
       'zod'
     )
-    .action(async (options) => {
+    .action(async (options: NewMigrationOptions) => {
       const result = await newMigrationCommand(options);
       process.exit(result.exitCode);
     });
@@ -119,7 +129,7 @@ export async function runCli(args: string[]): Promise<void> {
     .requiredOption('-t, --to <version>', 'Target version')
     .option('-g, --graph <path>', 'Path to migration graph or config file')
     .option('--format <format>', 'Output format (json or text)', 'text')
-    .action(async (options) => {
+    .action(async (options: PathOptions) => {
       const result = await pathCommand(options);
       process.exit(result.exitCode);
     });
@@ -132,7 +142,7 @@ export async function runCli(args: string[]): Promise<void> {
     .requiredOption('-t, --to <version>', 'Target version')
     .option('-g, --graph <path>', 'Path to migration graph or config file')
     .option('--format <format>', 'Output format (json or text)', 'text')
-    .action(async (options) => {
+    .action(async (options: DiffOptions) => {
       const result = await diffCommand(options);
       process.exit(result.exitCode);
     });

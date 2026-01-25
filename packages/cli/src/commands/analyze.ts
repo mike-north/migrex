@@ -19,12 +19,6 @@ import {
   formatSuggestionsText,
   formatDeprecatedVersionsText,
 } from '../formatters/text.js';
-import {
-  formatAnalysisJson,
-  formatLossyPathsJson,
-  formatSuggestionsJson,
-  formatDeprecatedVersionsJson,
-} from '../formatters/json.js';
 
 /**
  * Options for the analyze command.

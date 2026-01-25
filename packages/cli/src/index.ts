@@ -10,7 +10,7 @@
 import { runCli } from './cli.js';
 
 // Run the CLI
-runCli(process.argv.slice(2)).catch((error) => {
+runCli(process.argv.slice(2)).catch((error: unknown) => {
   console.error(error);
   process.exit(1);
 });

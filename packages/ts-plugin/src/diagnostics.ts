@@ -232,8 +232,9 @@ function hasKindCheck(node: ts.Node, typescript: typeof ts): boolean {
 
 /**
  * Get field profile for hover information.
+ * @internal Kept for future hover provider integration
  */
-export function getFieldProfile(
+export function _getFieldProfile(
   fieldName: string,
   analysis: AnalysisResult
 ): FieldProfile | undefined {

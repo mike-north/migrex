@@ -9,7 +9,6 @@ import type { AnalysisResult } from '@migrex/core';
 import { loadGraph } from '../loaders/graph-loader.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { logger } from '../utils/logger.js';
-import { formatAnalysisJson } from '../formatters/json.js';
 
 /**
  * Options for the check command.
