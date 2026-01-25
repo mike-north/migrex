@@ -125,7 +125,7 @@ export async function initCommand(options: InitOptions): Promise<InitResult> {
     });
     logger.log('');
     logger.log('Next steps:');
-    logger.log('  1. Edit schemas/v${versionIdentifier}.ts to define your schema');
+    logger.log(`  1. Edit schemas/v${versionIdentifier}.ts to define your schema`);
     logger.log('  2. Run "migrex check" to validate');
     logger.log('  3. Create new versions with "migrex new schema --version X"');
 

@@ -14,14 +14,14 @@ import type {
   MigrationContext,
 } from '../src/index.js';
 
-// Arbitraries for generating test data
-const userArbitrary = fc.record({
+// Arbitraries for generating test data (prefixed with _ for future use)
+const _userArbitrary = fc.record({
   name: fc.string({ minLength: 1, maxLength: 100 }),
   email: fc.emailAddress(),
   age: fc.integer({ min: 0, max: 150 }),
 });
 
-const productArbitrary = fc.record({
+const _productArbitrary = fc.record({
   id: fc.uuid(),
   name: fc.string({ minLength: 1, maxLength: 200 }),
   price: fc.float({ min: 0, max: 1000000, noNaN: true }),
