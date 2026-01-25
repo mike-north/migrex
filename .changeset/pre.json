@@ -12,5 +12,7 @@
     "@migrex/ts-plugin": "0.1.0",
     "@migrex/zod": "0.1.0"
   },
-  "changesets": []
+  "changesets": [
+    "strong-keys-hang"
+  ]
 }
