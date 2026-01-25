@@ -40,7 +40,7 @@
   "scripts": {
     "check:api-report": "api-extractor run",
     "generate:api-report": "api-extractor run --local",
-    "build": "tsup && pnpm run build:types && pnpm run generate:api-report && pnpm exec declaration-file-normalizer dist/eslint-plugin.d.ts",
+    "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
     "test": "vitest run",
