@@ -33,11 +33,11 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Update API surface
-        run: pnpm api:update
-
       - name: Build type declarations
         run: pnpm build:types
+
+      - name: Update API surface
+        run: pnpm api:update
 
       - name: Type check
         run: pnpm typecheck
