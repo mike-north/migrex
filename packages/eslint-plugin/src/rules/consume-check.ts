@@ -141,13 +141,12 @@ export const consumeCheck = ESLintUtils.RuleCreator.withoutDocs<
           node.object.name === 'field' &&
           node.property.name === 'value'
         ) {
-            const hasCheck = isWithinKindCheck(node, 'field');
-            if (!hasCheck) {
-              context.report({
-                node,
-                messageId: 'unsafeFieldAccess',
-              });
-            }
+          const hasCheck = isWithinKindCheck(node, 'field');
+          if (!hasCheck) {
+            context.report({
+              node,
+              messageId: 'unsafeFieldAccess',
+            });
           }
         }
       },
