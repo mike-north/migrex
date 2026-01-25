@@ -1,5 +1,5 @@
 /**
- * @migrex/files - File-based configuration integration for migrex
+ * \@migrex/files - File-based configuration integration for migrex
  *
  * This package provides utilities for loading, saving, and watching
  * versioned configuration files.
