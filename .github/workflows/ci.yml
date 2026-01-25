@@ -46,6 +46,9 @@ jobs:
       - name: Test
         run: pnpm test:run
 
+      - name: Build type declarations
+        run: pnpm build:types
+
       - name: Check API surface
         run: pnpm api:check
 
