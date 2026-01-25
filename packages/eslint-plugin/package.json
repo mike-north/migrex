@@ -2,8 +2,13 @@
   "name": "@migrex/eslint-plugin",
   "description": "ESLint plugin for migrex",
   "version": "0.2.0-alpha.0",
+  "dependencies": {
+    "@typescript-eslint/utils": "^8.0.0"
+  },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
+    "@migrex/core": "workspace:*",
+    "@typescript-eslint/rule-tester": "^8.0.0",
     "eslint": "^9.0.0",
     "tsd": "^0.31.0",
     "tsup": "^8.0.0"
@@ -29,7 +34,8 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "peerDependencies": {
-    "eslint": "^9.0.0"
+    "eslint": "^9.0.0",
+    "@migrex/core": "workspace:*"
   },
   "scripts": {
     "api:check": "api-extractor run",

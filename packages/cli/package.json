@@ -6,7 +6,8 @@
     "migrex": "./dist/index.js"
   },
   "dependencies": {
-    "@migrex/core": "workspace:*"
+    "@migrex/core": "workspace:*",
+    "commander": "^12.1.0"
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
