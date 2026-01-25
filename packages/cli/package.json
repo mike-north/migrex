@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.30",
     "tsup": "^8.0.0"
   },
   "engines": {

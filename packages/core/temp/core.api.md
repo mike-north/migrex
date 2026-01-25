@@ -87,7 +87,7 @@ export const calverStrategy: VersionStrategy;
 export interface ConnectivityAnalysis {
     components: readonly (readonly string[])[];
     fullyConnected: boolean;
-    unreachablePairs?: readonly {
+    unreachablePairs: readonly {
         from: string;
         to: string;
     }[];

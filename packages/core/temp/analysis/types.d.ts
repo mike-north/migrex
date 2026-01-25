@@ -64,10 +64,10 @@ export interface ConnectivityAnalysis {
     components: readonly (readonly string[])[];
     /**
      * Sample pairs of versions that cannot reach each other.
-     * Only present when fullyConnected is false.
+     * Empty when fullyConnected is true.
      * Contains one representative pair from each disconnected component pair.
      */
-    unreachablePairs?: readonly {
+    unreachablePairs: readonly {
         from: string;
         to: string;
     }[];

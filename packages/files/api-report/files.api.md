@@ -4,51 +4,71 @@
 
 ```ts
 
-// @public
-export function diffVersions(_graph: unknown, _fromVersion: string, _toVersion: string): unknown;
+import type { MigrationGraph } from '@migrex/core';
+import type { MigrationPath } from '@migrex/core';
 
 // @public
-export function loadConfig<T>(_graph: unknown, _filePath: string, _options?: LoadConfigOptions): Promise<LoadConfigResult<T>>;
+export class ConfigFileError extends Error {
+    constructor(message: string, filePath: string, cause?: unknown);
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly filePath: string;
+}
+
+// @public
+export interface ConfigWatcher {
+    stop(): void;
+}
+
+// @beta
+export function diffVersions(graph: MigrationGraph, fromVersion: string, toVersion: string): VersionDiff;
+
+// @public
+export function loadConfig<T>(graph: MigrationGraph, filePath: string, options?: LoadConfigOptions): Promise<LoadConfigResult<T>>;
 
 // @public
 export interface LoadConfigOptions {
-    // (undocumented)
+    format?: 'json' | 'yaml';
     targetVersion?: string;
 }
 
-// @public (undocumented)
+// @public
 export interface LoadConfigResult<T> {
-    // (undocumented)
     data: T;
-    // (undocumented)
-    migrationPath?: unknown;
-    // (undocumented)
+    migrationPath?: MigrationPath;
     sourceVersion: string;
+    targetVersion: string;
+    wasUpgraded: boolean;
 }
 
 // @public
-export function saveConfig(_graph: unknown, _filePath: string, _data: unknown, _options?: SaveConfigOptions): Promise<void>;
+export function saveConfig(graph: MigrationGraph, filePath: string, data: unknown, options?: SaveConfigOptions): Promise<void>;
 
-// @public (undocumented)
+// @public
 export interface SaveConfigOptions {
-    // (undocumented)
     format?: 'json' | 'yaml';
-    // (undocumented)
+    pretty?: boolean;
     version?: string;
 }
 
 // @public
-export function watchConfig(_graph: unknown, _filePath: string, _options?: WatchConfigOptions): {
-    stop: () => void;
-};
+export interface VersionDiff {
+    addedFields: string[];
+    from: string;
+    modifiedFields: string[];
+    removedFields: string[];
+    to: string;
+}
 
-// @public (undocumented)
+// @public
+export function watchConfig(graph: MigrationGraph, filePath: string, options?: WatchConfigOptions): ConfigWatcher;
+
+// @public
 export interface WatchConfigOptions {
-    // (undocumented)
+    debounceMs?: number;
     onError?: (error: Error) => void;
-    // (undocumented)
-    onUpdate?: (config: unknown) => void;
-    // (undocumented)
+    onUpdate?: (config: LoadConfigResult<unknown>) => void;
     targetVersion?: string;
 }
 
