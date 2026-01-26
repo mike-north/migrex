@@ -31,5 +31,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/cli.d.ts"
+  "types": "./dist/cli.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }

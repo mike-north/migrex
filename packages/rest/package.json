@@ -43,5 +43,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/rest.d.ts"
+  "types": "./dist/rest.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }

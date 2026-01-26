@@ -47,5 +47,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/eslint-plugin.d.ts"
+  "types": "./dist/eslint-plugin.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }

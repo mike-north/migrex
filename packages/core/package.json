@@ -42,5 +42,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/core.d.ts"
+  "types": "./dist/core.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }

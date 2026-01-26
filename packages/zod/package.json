@@ -44,5 +44,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/zod.d.ts"
+  "types": "./dist/zod.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }

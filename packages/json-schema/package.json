@@ -47,5 +47,8 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/json-schema.d.ts"
+  "types": "./dist/json-schema.d.ts",
+  "publishConfig": {
+    "access": "public"
+  }
 }
