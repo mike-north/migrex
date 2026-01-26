@@ -10,10 +10,12 @@
     "@migrex/rest": "0.1.0",
     "@migrex/testing": "0.1.0",
     "@migrex/ts-plugin": "0.1.0",
-    "@migrex/zod": "0.1.0"
+    "@migrex/zod": "0.1.0",
+    "@migrex/example-config": "0.1.0"
   },
   "changesets": [
     "cool-agents-learn",
+    "friendly-files-rename",
     "strong-keys-hang"
   ]
 }
