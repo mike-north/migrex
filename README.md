@@ -4,6 +4,15 @@ Versioned data contracts with bidirectional migrations for TypeScript.
 
 Migrex helps you manage evolving data schemas by providing a graph-based migration system that can transform data between any two versions—forward or backward—while preserving fields that would otherwise be lost.
 
+## AI Assistant Guide
+
+If you're an AI coding assistant helping with migrex, see the comprehensive **[AI Assistant Instructions](./AI_ASSISTANT_INSTRUCTIONS.md)** for detailed guidance on:
+- Creating schemas and migrations
+- Choosing between reversible and irreversible migrations
+- Field preservation patterns
+- Building and analyzing migration graphs
+- Common patterns and anti-patterns
+
 ## Features
 
 - **Bidirectional migrations** - Migrate data forward (up) or backward (down) between any versions
