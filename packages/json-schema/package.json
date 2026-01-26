@@ -36,6 +36,9 @@
   "peerDependencies": {
     "@migrex/core": "workspace:*"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",
@@ -47,8 +50,5 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/json-schema.d.ts",
-  "publishConfig": {
-    "access": "public"
-  }
+  "types": "./dist/json-schema.d.ts"
 }

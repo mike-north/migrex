@@ -128,9 +128,9 @@ export class GraphLoader {
       typeof obj === 'object' &&
       obj !== null &&
       'migrate' in obj &&
-      'findPath' in obj &&
+      'getPath' in obj &&
       typeof (obj as Record<string, unknown>)['migrate'] === 'function' &&
-      typeof (obj as Record<string, unknown>)['findPath'] === 'function'
+      typeof (obj as Record<string, unknown>)['getPath'] === 'function'
     );
   }
 }

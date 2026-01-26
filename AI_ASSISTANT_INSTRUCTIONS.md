@@ -935,50 +935,83 @@ migrex generate-types --graph ./src/migrations/graph.ts -o ./src/types/migrex.d.
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { assertMigration, assertRoundTrip, createTestGraph } from '@migrex/testing';
-import { migrationV1ToV2 } from './migrations';
-import { schemaV1, schemaV2 } from './schemas';
+import {
+  assertLossless,
+  assertConnected,
+  assertFieldProfile,
+  testPipeline,
+  createTestFixture,
+} from '@migrex/testing';
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
+import { migrationV1ToV2, migrationV2ToV3 } from './migrations';
+import { schemaV1, schemaV2, schemaV3 } from './schemas';
 
 describe('v1 → v2 migration', () => {
   it('should migrate forward correctly', () => {
-    assertMigration(migrationV1ToV2, {
-      direction: 'up',
-      input: { version: '1.0.0', name: 'John Doe' },
-      expected: { version: '2.0.0', firstName: 'John', lastName: 'Doe' },
-    });
+    const graph = createMigrationGraph({ id: 'test', versionStrategy: semverStrategy });
+    graph.registerSchema(schemaV1);
+    graph.registerSchema(schemaV2);
+    graph.registerMigration(migrationV1ToV2);
+
+    const result = graph.migrate({ name: 'John Doe' }, '1.0.0', '2.0.0');
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ firstName: 'John', lastName: 'Doe' });
   });
 
   it('should migrate backward correctly', () => {
-    assertMigration(migrationV1ToV2, {
-      direction: 'down',
-      input: { version: '2.0.0', firstName: 'Jane', lastName: 'Smith' },
-      expected: { version: '1.0.0', name: 'Jane Smith' },
-    });
+    const graph = createMigrationGraph({ id: 'test', versionStrategy: semverStrategy });
+    graph.registerSchema(schemaV1);
+    graph.registerSchema(schemaV2);
+    graph.registerMigration(migrationV1ToV2);
+
+    const result = graph.migrate({ firstName: 'Jane', lastName: 'Smith' }, '2.0.0', '1.0.0');
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ name: 'Jane Smith' });
   });
 
   it('should round-trip without loss', () => {
-    assertRoundTrip(migrationV1ToV2, {
-      version: '1.0.0',
-      data: { version: '1.0.0', name: 'Test User' },
-    });
+    const graph = createMigrationGraph({ id: 'test', versionStrategy: semverStrategy });
+    graph.registerSchema(schemaV1);
+    graph.registerSchema(schemaV2);
+    graph.registerMigration(migrationV1ToV2);
+
+    const original = { name: 'Test User' };
+    const up = graph.migrate(original, '1.0.0', '2.0.0');
+    const roundTrip = graph.migrate(up.data, '2.0.0', '1.0.0');
+
+    assertLossless(roundTrip); // Verify no fields were lost
+    expect(roundTrip.data).toEqual(original);
   });
 });
 
-describe('migration graph', () => {
-  it('should migrate across multiple versions', () => {
-    const graph = createTestGraph({
-      schemas: [schemaV1, schemaV2, schemaV3],
-      migrations: [migrationV1ToV2, migrationV2ToV3],
-    });
+describe('migration graph analysis', () => {
+  it('should be fully connected', () => {
+    const graph = createMigrationGraph({ id: 'test', versionStrategy: semverStrategy });
+    graph.registerSchema(schemaV1);
+    graph.registerSchema(schemaV2);
+    graph.registerSchema(schemaV3);
+    graph.registerMigration(migrationV1ToV2);
+    graph.registerMigration(migrationV2ToV3);
 
-    const result = graph.migrate(
-      { version: '1.0.0', name: 'Test' },
-      '1.0.0',
-      '3.0.0'
-    );
+    assertConnected(graph); // Throws if not fully connected
+  });
 
-    expect(result.success).toBe(true);
-    expect(result.data?.version).toBe('3.0.0');
+  it('should have correct field profiles', () => {
+    const graph = createMigrationGraph({ id: 'test', versionStrategy: semverStrategy });
+    // ... register schemas and migrations
+
+    assertFieldProfile(graph, 'theme', 'always-single');
+  });
+});
+
+describe('test pipeline', () => {
+  it('should execute migrations in sequence', () => {
+    const pipeline = testPipeline([migrationV1ToV2, migrationV2ToV3]);
+
+    const result = pipeline.execute({ name: 'Test' });
+    const profiles = pipeline.getProfile();
+
+    expect(profiles).toBeDefined();
   });
 });
 ```
@@ -1133,7 +1166,13 @@ import { fromZod } from '@migrex/zod';
 import { createJsonSchemaPlugin, fromJsonSchema } from '@migrex/json-schema';
 
 // Testing
-import { assertMigration, assertRoundTrip, createTestGraph } from '@migrex/testing';
+import {
+  assertLossless,
+  assertConnected,
+  assertFieldProfile,
+  testPipeline,
+  createTestFixture,
+} from '@migrex/testing';
 ```
 
 ### Migration Context Methods

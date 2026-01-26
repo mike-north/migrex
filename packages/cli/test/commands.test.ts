@@ -158,8 +158,8 @@ function createMockAnalysis(
   return {
     graphId: 'test-graph',
     connectivity: {
-      isFullyConnected: true,
-      disconnectedVersions: [],
+      fullyConnected: true,
+      unreachablePairs: [],
       components: [],
     },
     diagnostics,
