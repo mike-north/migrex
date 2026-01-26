@@ -1,7 +1,7 @@
 {
   "name": "@migrex/ts-plugin",
   "description": "TypeScript Language Service Plugin for migrex",
-  "version": "0.2.0-alpha.0",
+  "version": "0.2.0-alpha.1",
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
     "@types/node": "^20.19.30",
