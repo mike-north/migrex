@@ -5,7 +5,7 @@ import type {
   ReversibleMigration,
   MigrationContext,
 } from '@migrex/core';
-import { loadConfig, saveConfig } from '../src/index.js';
+import { loadVersionedFile, saveVersionedFile } from '../src/index.js';
 import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -168,10 +168,10 @@ describe('Integration: Full workflow', () => {
       port: 3000,
     };
 
-    await saveConfig(graph, configPath, v1Config);
+    await saveVersionedFile(graph, configPath, v1Config);
 
     // Step 2: Load it and auto-migrate to v3
-    const result = await loadConfig<V3AppConfig>(graph, configPath, {
+    const result = await loadVersionedFile<V3AppConfig>(graph, configPath, {
       targetVersion: '3.0.0',
     });
 
@@ -214,10 +214,10 @@ describe('Integration: Full workflow', () => {
     };
 
     // Save v2
-    await saveConfig(graph, configPath, config);
+    await saveVersionedFile(graph, configPath, config);
 
     // Load v2 (no migration)
-    const result = await loadConfig<V2AppConfig>(graph, configPath, {
+    const result = await loadVersionedFile<V2AppConfig>(graph, configPath, {
       targetVersion: '2.0.0',
     });
 
@@ -246,10 +246,10 @@ describe('Integration: Full workflow', () => {
       port: 9000,
     };
 
-    await saveConfig(graph, configPath, v1Config);
+    await saveVersionedFile(graph, configPath, v1Config);
 
     // First migration: v1 -> v2
-    let result = await loadConfig<V2AppConfig>(graph, configPath, {
+    let result = await loadVersionedFile<V2AppConfig>(graph, configPath, {
       targetVersion: '2.0.0',
     });
 
@@ -258,10 +258,10 @@ describe('Integration: Full workflow', () => {
     expect(result.data.server.host).toBe('localhost');
 
     // Save the v2 config
-    await saveConfig(graph, configPath, result.data);
+    await saveVersionedFile(graph, configPath, result.data);
 
     // Second migration: v2 -> v3
-    result = await loadConfig<V3AppConfig>(graph, configPath, {
+    result = await loadVersionedFile<V3AppConfig>(graph, configPath, {
       targetVersion: '3.0.0',
     });
 
@@ -294,10 +294,10 @@ describe('Integration: Full workflow', () => {
     };
 
     // Save
-    await saveConfig(graph, configPath, originalConfig);
+    await saveVersionedFile(graph, configPath, originalConfig);
 
     // Load
-    const result = await loadConfig<V3AppConfig>(graph, configPath, {
+    const result = await loadVersionedFile<V3AppConfig>(graph, configPath, {
       targetVersion: '3.0.0',
     });
 

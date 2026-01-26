@@ -1,0 +1,28 @@
+{
+  "name": "@migrex/example-config",
+  "description": "Example package demonstrating migrex with config file migrations",
+  "version": "0.1.0",
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.48.0",
+    "@migrex/core": "workspace:*",
+    "@migrex/files": "workspace:*",
+    "@migrex/zod": "workspace:*",
+    "tsd": "^0.31.0",
+    "tsup": "^8.0.0",
+    "zod": "^3.24.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "private": true,
+  "scripts": {
+    "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
+    "build:types": "tsc -p tsconfig.build.json",
+    "check:api-report": "api-extractor run",
+    "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "generate:api-report": "api-extractor run --local",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "type": "module"
+}
