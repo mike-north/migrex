@@ -1,6 +1,6 @@
 # @migrex/files
 
-File-based configuration integration for migrex. Load, save, and watch versioned configuration files with automatic migration support.
+File-based versioned data integration for migrex. Load, save, upgrade, and watch versioned files with automatic migration support.
 
 ## Installation
 
@@ -10,18 +10,19 @@ npm install @migrex/files @migrex/core
 
 ## Features
 
-- **Load & Auto-migrate**: Load configuration files and automatically migrate to target version
-- **Save**: Save configuration with version information
+- **Load & Auto-migrate**: Load versioned files and automatically migrate to target version
+- **Save**: Save data with version information
+- **Upgrade**: Upgrade files in place to a target version
 - **Watch**: Watch files for changes and automatically reload/migrate
 - **Format detection**: Automatic JSON format detection (YAML coming soon)
 - **Type-safe**: Full TypeScript support with strict typing
 
 ## Usage
 
-### Load Configuration
+### Load Versioned File
 
 ```typescript
-import { loadConfig } from '@migrex/files';
+import { loadVersionedFile } from '@migrex/files';
 import { createMigrationGraph, semverStrategy } from '@migrex/core';
 
 const graph = createMigrationGraph({
@@ -32,43 +33,68 @@ const graph = createMigrationGraph({
 // Register your schemas and migrations...
 
 // Load and auto-migrate to latest version
-const result = await loadConfig(graph, './config.json');
+const result = await loadVersionedFile(graph, './data.json');
 console.log(result.data); // Migrated data
 console.log(result.wasUpgraded); // true if migration occurred
 
 // Load and migrate to specific version
-const result2 = await loadConfig(graph, './config.json', {
+const result2 = await loadVersionedFile(graph, './data.json', {
   targetVersion: '2.0.0',
 });
 ```
 
-### Save Configuration
+### Save Versioned File
 
 ```typescript
-import { saveConfig } from '@migrex/files';
+import { saveVersionedFile } from '@migrex/files';
 
-await saveConfig(graph, './config.json', {
+await saveVersionedFile(graph, './data.json', {
   version: '2.0.0',
-  appName: 'My App',
+  name: 'My App',
   port: 3000,
 });
 
 // Pretty-printed by default, save compact:
-await saveConfig(graph, './config.json', data, { pretty: false });
+await saveVersionedFile(graph, './data.json', data, { pretty: false });
 ```
 
-### Watch Configuration
+### Upgrade Versioned File
+
+Upgrade a file in place - read, migrate, and write back:
 
 ```typescript
-import { watchConfig } from '@migrex/files';
+import { upgradeVersionedFile } from '@migrex/files';
 
-const watcher = watchConfig(graph, './config.json', {
+// Upgrade to latest version
+const result = await upgradeVersionedFile(graph, './data.json');
+if (result.wasMigrated) {
+  console.log(`Upgraded from ${result.sourceVersion} to ${result.targetVersion}`);
+}
+
+// Upgrade to specific version
+const result2 = await upgradeVersionedFile(graph, './data.json', {
   targetVersion: '2.0.0',
-  onUpdate: (config) => {
-    console.log('Config updated:', config.data);
+});
+
+// Force rewrite even if already at target version
+await upgradeVersionedFile(graph, './data.json', {
+  targetVersion: '2.0.0',
+  skipIfCurrent: false,
+});
+```
+
+### Watch Versioned File
+
+```typescript
+import { watchVersionedFile } from '@migrex/files';
+
+const watcher = watchVersionedFile(graph, './data.json', {
+  targetVersion: '2.0.0',
+  onUpdate: (result) => {
+    console.log('File updated:', result.data);
   },
   onError: (error) => {
-    console.error('Config error:', error);
+    console.error('Error:', error);
   },
 });
 
@@ -89,46 +115,61 @@ console.log('Modified fields:', diff.modifiedFields);
 
 ## API
 
-### `loadConfig<T>(graph, filePath, options?)`
+### `loadVersionedFile<T>(graph, filePath, options?)`
 
-Load and auto-migrate a configuration file.
+Load and auto-migrate a versioned file.
 
 **Parameters:**
 - `graph: MigrationGraph` - Migration graph with schemas and migrations
-- `filePath: string` - Path to configuration file
-- `options?: LoadConfigOptions` - Loading options
+- `filePath: string` - Path to file
+- `options?: LoadOptions` - Loading options
 
-**Returns:** `Promise<LoadConfigResult<T>>`
+**Returns:** `Promise<LoadResult<T>>`
 
 **Throws:**
-- `ConfigFileError` - If file cannot be read or parsed
+- `VersionedFileError` - If file cannot be read or parsed
 - `MigrationError` - If migration fails
 
-### `saveConfig(graph, filePath, data, options?)`
+### `saveVersionedFile(graph, filePath, data, options?)`
 
-Save configuration to a file.
+Save data to a versioned file.
 
 **Parameters:**
 - `graph: MigrationGraph` - Migration graph
 - `filePath: string` - Path to save file
-- `data: unknown` - Configuration data
-- `options?: SaveConfigOptions` - Save options
+- `data: unknown` - Data to save
+- `options?: SaveOptions` - Save options
 
 **Returns:** `Promise<void>`
 
 **Throws:**
-- `ConfigFileError` - If file cannot be written or validation fails
+- `VersionedFileError` - If file cannot be written or validation fails
 
-### `watchConfig(graph, filePath, options?)`
+### `upgradeVersionedFile(graph, filePath, options?)`
 
-Watch a configuration file for changes.
+Upgrade a versioned file in place to a target version.
+
+**Parameters:**
+- `graph: MigrationGraph` - Migration graph with schemas and migrations
+- `filePath: string` - Path to file
+- `options?: UpgradeOptions` - Upgrade options
+
+**Returns:** `Promise<UpgradeResult>`
+
+**Throws:**
+- `VersionedFileError` - If file cannot be read, parsed, or written
+- `MigrationError` - If migration fails
+
+### `watchVersionedFile(graph, filePath, options?)`
+
+Watch a versioned file for changes.
 
 **Parameters:**
 - `graph: MigrationGraph` - Migration graph
 - `filePath: string` - Path to watch
-- `options?: WatchConfigOptions` - Watch options
+- `options?: WatchOptions` - Watch options
 
-**Returns:** `ConfigWatcher` - Watcher with `stop()` method
+**Returns:** `FileWatcher` - Watcher with `stop()` method
 
 ### `diffVersions(graph, fromVersion, toVersion)`
 
@@ -146,19 +187,19 @@ Compare two schema versions.
 
 ## Types
 
-### `LoadConfigOptions`
+### `LoadOptions`
 
 ```typescript
-interface LoadConfigOptions {
+interface LoadOptions {
   targetVersion?: string;  // Target version to migrate to
   format?: 'json' | 'yaml';  // File format (default: auto-detect)
 }
 ```
 
-### `LoadConfigResult<T>`
+### `LoadResult<T>`
 
 ```typescript
-interface LoadConfigResult<T> {
+interface LoadResult<T> {
   data: T;  // Loaded and migrated data
   sourceVersion: string;  // Original version in file
   targetVersion: string;  // Version after migration
@@ -167,31 +208,54 @@ interface LoadConfigResult<T> {
 }
 ```
 
-### `SaveConfigOptions`
+### `SaveOptions`
 
 ```typescript
-interface SaveConfigOptions {
+interface SaveOptions {
   version?: string;  // Version to set (default: auto-detect)
   format?: 'json' | 'yaml';  // File format (default: auto-detect)
   pretty?: boolean;  // Pretty-print output (default: true)
 }
 ```
 
-### `WatchConfigOptions`
+### `UpgradeOptions`
 
 ```typescript
-interface WatchConfigOptions {
+interface UpgradeOptions {
+  targetVersion?: string;  // Target version to upgrade to
+  format?: 'json' | 'yaml';  // File format (default: auto-detect)
+  pretty?: boolean;  // Pretty-print output (default: true)
+  skipIfCurrent?: boolean;  // Skip write if already at target (default: true)
+}
+```
+
+### `UpgradeResult`
+
+```typescript
+interface UpgradeResult {
+  sourceVersion: string;  // Original version in file
+  targetVersion: string;  // Version after upgrade
+  wasWritten: boolean;  // Whether file was written
+  wasMigrated: boolean;  // Whether migration occurred
+  migrationPath?: MigrationPath;  // Migration steps executed
+}
+```
+
+### `WatchOptions`
+
+```typescript
+interface WatchOptions {
   targetVersion?: string;  // Target version for auto-migration
   debounceMs?: number;  // Debounce delay (default: 100ms)
-  onUpdate?: (config: LoadConfigResult<unknown>) => void;
+  onUpdate?: (result: LoadResult<unknown>) => void;
   onError?: (error: Error) => void;
 }
 ```
 
-### `ConfigWatcher`
+### `FileWatcher`
 
 ```typescript
-interface ConfigWatcher {
+interface FileWatcher {
   stop(): void;  // Stop watching and clean up
 }
 ```
@@ -208,10 +272,10 @@ interface VersionDiff {
 }
 ```
 
-### `ConfigFileError`
+### `VersionedFileError`
 
 ```typescript
-class ConfigFileError extends Error {
+class VersionedFileError extends Error {
   readonly filePath: string;
   readonly cause?: unknown;
 }
@@ -219,13 +283,13 @@ class ConfigFileError extends Error {
 
 ## Error Handling
 
-All functions throw `ConfigFileError` for file operations and parse errors:
+All functions throw `VersionedFileError` for file operations and parse errors:
 
 ```typescript
 try {
-  const result = await loadConfig(graph, './config.json');
+  const result = await loadVersionedFile(graph, './data.json');
 } catch (error) {
-  if (error instanceof ConfigFileError) {
+  if (error instanceof VersionedFileError) {
     console.error('File error:', error.message);
     console.error('File path:', error.filePath);
     console.error('Cause:', error.cause);
@@ -242,7 +306,7 @@ JSON format is fully supported out of the box:
 ```json
 {
   "version": "2.0.0",
-  "appName": "My App",
+  "name": "My App",
   "port": 3000
 }
 ```

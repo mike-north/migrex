@@ -7,13 +7,15 @@ import type {
   MigrationContext,
 } from '@migrex/core';
 import {
-  loadConfig,
-  saveConfig,
-  watchConfig,
+  loadVersionedFile,
+  saveVersionedFile,
+  upgradeVersionedFile,
+  watchVersionedFile,
   diffVersions,
-  ConfigFileError,
-  type LoadConfigResult,
-  type ConfigWatcher,
+  VersionedFileError,
+  type LoadResult,
+  type FileWatcher,
+  type UpgradeResult,
 } from '../src/index.js';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -151,14 +153,14 @@ async function writeTestConfig(data: unknown): Promise<void> {
   await writeFile(testFilePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-describe('loadConfig', () => {
+describe('loadVersionedFile', () => {
   describe('positive cases', () => {
     it('should load a valid config file without migration', async () => {
       const graph = createTestGraph();
       const configData: V2Config = { version: '2.0.0', appName: 'TestApp' };
       await writeTestConfig(configData);
 
-      const result = await loadConfig<V2Config>(graph, testFilePath, {
+      const result = await loadVersionedFile<V2Config>(graph, testFilePath, {
         targetVersion: '2.0.0',
       });
 
@@ -174,7 +176,7 @@ describe('loadConfig', () => {
       const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
       await writeTestConfig(configData);
 
-      const result = await loadConfig<V2Config>(graph, testFilePath, {
+      const result = await loadVersionedFile<V2Config>(graph, testFilePath, {
         targetVersion: '2.0.0',
       });
 
@@ -192,7 +194,7 @@ describe('loadConfig', () => {
       const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
       await writeTestConfig(configData);
 
-      const result = await loadConfig<V3Config>(graph, testFilePath);
+      const result = await loadVersionedFile<V3Config>(graph, testFilePath);
 
       expect(result.data.version).toBe('3.0.0');
       expect(result.data.name).toBe('TestApp');
@@ -206,7 +208,7 @@ describe('loadConfig', () => {
       const configData: V1Config = { version: '1.0.0', appName: 'MyApp' };
       await writeTestConfig(configData);
 
-      const result = await loadConfig<V3Config>(graph, testFilePath, {
+      const result = await loadVersionedFile<V3Config>(graph, testFilePath, {
         targetVersion: '3.0.0',
       });
 
@@ -221,80 +223,80 @@ describe('loadConfig', () => {
   });
 
   describe('negative cases', () => {
-    it('should throw ConfigFileError when file does not exist', async () => {
+    it('should throw VersionedFileError when file does not exist', async () => {
       const graph = createTestGraph();
       const nonExistentPath = join(testDir, 'nonexistent.json');
 
       await expect(
-        loadConfig(graph, nonExistentPath)
-      ).rejects.toThrowError(ConfigFileError);
+        loadVersionedFile(graph, nonExistentPath)
+      ).rejects.toThrowError(VersionedFileError);
 
       try {
-        await loadConfig(graph, nonExistentPath);
+        await loadVersionedFile(graph, nonExistentPath);
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
-        expect((error as ConfigFileError).filePath).toBe(nonExistentPath);
-        expect((error as ConfigFileError).message).toContain('Failed to read');
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).filePath).toBe(nonExistentPath);
+        expect((error as VersionedFileError).message).toContain('Failed to read');
       }
     });
 
-    it('should throw ConfigFileError when JSON is invalid', async () => {
+    it('should throw VersionedFileError when JSON is invalid', async () => {
       const graph = createTestGraph();
       await writeFile(testFilePath, '{ invalid json }', 'utf-8');
 
       await expect(
-        loadConfig(graph, testFilePath)
-      ).rejects.toThrowError(ConfigFileError);
+        loadVersionedFile(graph, testFilePath)
+      ).rejects.toThrowError(VersionedFileError);
 
       try {
-        await loadConfig(graph, testFilePath);
+        await loadVersionedFile(graph, testFilePath);
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
-        expect((error as ConfigFileError).message).toContain('Failed to parse');
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain('Failed to parse');
       }
     });
 
-    it('should throw ConfigFileError when version field is missing', async () => {
+    it('should throw VersionedFileError when version field is missing', async () => {
       const graph = createTestGraph();
       await writeTestConfig({ appName: 'TestApp' });
 
       await expect(
-        loadConfig(graph, testFilePath)
-      ).rejects.toThrowError(ConfigFileError);
+        loadVersionedFile(graph, testFilePath)
+      ).rejects.toThrowError(VersionedFileError);
 
       try {
-        await loadConfig(graph, testFilePath);
+        await loadVersionedFile(graph, testFilePath);
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
-        expect((error as ConfigFileError).message).toContain(
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain(
           "missing 'version' field"
         );
       }
     });
 
-    it('should throw ConfigFileError when schema not registered for version', async () => {
+    it('should throw VersionedFileError when schema not registered for version', async () => {
       const graph = createTestGraph();
       await writeTestConfig({ version: '99.0.0', appName: 'TestApp' });
 
       await expect(
-        loadConfig(graph, testFilePath, { targetVersion: '99.0.0' })
-      ).rejects.toThrowError(ConfigFileError);
+        loadVersionedFile(graph, testFilePath, { targetVersion: '99.0.0' })
+      ).rejects.toThrowError(VersionedFileError);
     });
 
-    it('should throw ConfigFileError when validation fails', async () => {
+    it('should throw VersionedFileError when validation fails', async () => {
       const graph = createTestGraph();
       await writeTestConfig({ version: '1.0.0', wrongField: 'value' });
 
       await expect(
-        loadConfig(graph, testFilePath, { targetVersion: '1.0.0' })
-      ).rejects.toThrowError(ConfigFileError);
+        loadVersionedFile(graph, testFilePath, { targetVersion: '1.0.0' })
+      ).rejects.toThrowError(VersionedFileError);
 
       try {
-        await loadConfig(graph, testFilePath, { targetVersion: '1.0.0' });
+        await loadVersionedFile(graph, testFilePath, { targetVersion: '1.0.0' });
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
-        expect((error as ConfigFileError).message).toContain(
-          'validation failed'
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain(
+          'Validation failed'
         );
       }
     });
@@ -304,14 +306,14 @@ describe('loadConfig', () => {
       const yamlPath = join(testDir, 'config.yaml');
       await writeFile(yamlPath, 'version: 1.0.0\nappName: TestApp\n', 'utf-8');
 
-      await expect(loadConfig(graph, yamlPath)).rejects.toThrowError(
-        ConfigFileError
+      await expect(loadVersionedFile(graph, yamlPath)).rejects.toThrowError(
+        VersionedFileError
       );
 
       try {
-        await loadConfig(graph, yamlPath);
+        await loadVersionedFile(graph, yamlPath);
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
+        expect(error).toBeInstanceOf(VersionedFileError);
         expect((error as Error).message).toContain('Failed to parse');
         expect((error as Error).message).toContain('YAML');
       }
@@ -323,7 +325,7 @@ describe('loadConfig', () => {
       const graph = createTestGraph();
       await writeTestConfig({ version: '1.0.0', appName: '' });
 
-      const result = await loadConfig<V1Config>(graph, testFilePath, {
+      const result = await loadVersionedFile<V1Config>(graph, testFilePath, {
         targetVersion: '1.0.0',
       });
 
@@ -338,7 +340,7 @@ describe('loadConfig', () => {
         extraField: 'preserved',
       });
 
-      const result = await loadConfig<V2Config>(graph, testFilePath, {
+      const result = await loadVersionedFile<V2Config>(graph, testFilePath, {
         targetVersion: '2.0.0',
       });
 
@@ -348,7 +350,7 @@ describe('loadConfig', () => {
   });
 });
 
-describe('saveConfig', () => {
+describe('saveVersionedFile', () => {
   describe('positive cases', () => {
     it('should save config with specified version', async () => {
       const graph = createTestGraph();
@@ -358,7 +360,7 @@ describe('saveConfig', () => {
         port: 8080,
       };
 
-      await saveConfig(graph, testFilePath, config, { version: '2.0.0' });
+      await saveVersionedFile(graph, testFilePath, config, { version: '2.0.0' });
 
       const content = await readFile(testFilePath, 'utf-8');
       const parsed = JSON.parse(content);
@@ -372,7 +374,7 @@ describe('saveConfig', () => {
         appName: 'TestApp',
       };
 
-      await saveConfig(graph, testFilePath, config);
+      await saveVersionedFile(graph, testFilePath, config);
 
       const content = await readFile(testFilePath, 'utf-8');
       const parsed = JSON.parse(content);
@@ -383,7 +385,7 @@ describe('saveConfig', () => {
       const graph = createTestGraph();
       const config = { name: 'TestApp' };
 
-      await saveConfig(graph, testFilePath, config);
+      await saveVersionedFile(graph, testFilePath, config);
 
       const content = await readFile(testFilePath, 'utf-8');
       const parsed = JSON.parse(content);
@@ -397,7 +399,7 @@ describe('saveConfig', () => {
         appName: 'TestApp',
       };
 
-      await saveConfig(graph, testFilePath, config);
+      await saveVersionedFile(graph, testFilePath, config);
 
       const content = await readFile(testFilePath, 'utf-8');
       expect(content).toContain('\n');
@@ -411,7 +413,7 @@ describe('saveConfig', () => {
         appName: 'TestApp',
       };
 
-      await saveConfig(graph, testFilePath, config, { pretty: false });
+      await saveVersionedFile(graph, testFilePath, config, { pretty: false });
 
       const content = await readFile(testFilePath, 'utf-8');
       expect(content).not.toContain('\n');
@@ -419,25 +421,25 @@ describe('saveConfig', () => {
   });
 
   describe('negative cases', () => {
-    it('should throw ConfigFileError when validation fails', async () => {
+    it('should throw VersionedFileError when validation fails', async () => {
       const graph = createTestGraph();
       const invalidConfig = { version: '2.0.0', wrongField: 'value' };
 
       await expect(
-        saveConfig(graph, testFilePath, invalidConfig, { version: '2.0.0' })
-      ).rejects.toThrowError(ConfigFileError);
+        saveVersionedFile(graph, testFilePath, invalidConfig, { version: '2.0.0' })
+      ).rejects.toThrowError(VersionedFileError);
 
       try {
-        await saveConfig(graph, testFilePath, invalidConfig, {
+        await saveVersionedFile(graph, testFilePath, invalidConfig, {
           version: '2.0.0',
         });
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
-        expect((error as ConfigFileError).message).toContain('invalid config');
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain('invalid data');
       }
     });
 
-    it('should throw ConfigFileError when write fails', async () => {
+    it('should throw VersionedFileError when write fails', async () => {
       const graph = createTestGraph();
       const config: V2Config = {
         version: '2.0.0',
@@ -446,14 +448,14 @@ describe('saveConfig', () => {
       const invalidPath = join('/nonexistent/directory', 'config.json');
 
       await expect(
-        saveConfig(graph, invalidPath, config)
-      ).rejects.toThrowError(ConfigFileError);
+        saveVersionedFile(graph, invalidPath, config)
+      ).rejects.toThrowError(VersionedFileError);
 
       try {
-        await saveConfig(graph, invalidPath, config);
+        await saveVersionedFile(graph, invalidPath, config);
       } catch (error) {
-        expect(error).toBeInstanceOf(ConfigFileError);
-        expect((error as ConfigFileError).message).toContain(
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain(
           'Failed to write'
         );
       }
@@ -465,7 +467,7 @@ describe('saveConfig', () => {
       const config = { version: '1.0.0', appName: 'TestApp' };
 
       await expect(
-        saveConfig(graph, yamlPath, config)
+        saveVersionedFile(graph, yamlPath, config)
       ).rejects.toThrowError(/YAML format not yet supported/);
     });
   });
@@ -478,7 +480,7 @@ describe('saveConfig', () => {
       });
       const primitiveData = 'test-string';
 
-      await saveConfig(graph, testFilePath, primitiveData, {
+      await saveVersionedFile(graph, testFilePath, primitiveData, {
         version: '1.0.0',
       });
 
@@ -495,7 +497,7 @@ describe('saveConfig', () => {
       });
 
       const config = { version: '1.0.0', anything: 'goes' };
-      await saveConfig(graph, testFilePath, config);
+      await saveVersionedFile(graph, testFilePath, config);
 
       const content = await readFile(testFilePath, 'utf-8');
       const parsed = JSON.parse(content);
@@ -504,7 +506,204 @@ describe('saveConfig', () => {
   });
 });
 
-describe('watchConfig', () => {
+describe('upgradeVersionedFile', () => {
+  describe('positive cases', () => {
+    it('should upgrade config from v1 to v2', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeTestConfig(configData);
+
+      const result = await upgradeVersionedFile(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.sourceVersion).toBe('1.0.0');
+      expect(result.targetVersion).toBe('2.0.0');
+      expect(result.wasMigrated).toBe(true);
+      expect(result.wasWritten).toBe(true);
+      expect(result.migrationPath).toBeDefined();
+
+      // Verify file was updated
+      const content = await readFile(testFilePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(parsed.version).toBe('2.0.0');
+      expect(parsed.appName).toBe('TestApp');
+      expect(parsed.port).toBe(3000);
+    });
+
+    it('should upgrade to latest version when targetVersion not specified', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeTestConfig(configData);
+
+      const result = await upgradeVersionedFile(graph, testFilePath);
+
+      expect(result.sourceVersion).toBe('1.0.0');
+      expect(result.targetVersion).toBe('3.0.0');
+      expect(result.wasMigrated).toBe(true);
+      expect(result.wasWritten).toBe(true);
+
+      // Verify file was updated to v3
+      const content = await readFile(testFilePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(parsed.version).toBe('3.0.0');
+      expect(parsed.name).toBe('TestApp');
+    });
+
+    it('should handle multi-step upgrades', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'MyApp' };
+      await writeTestConfig(configData);
+
+      const result = await upgradeVersionedFile(graph, testFilePath, {
+        targetVersion: '3.0.0',
+      });
+
+      expect(result.sourceVersion).toBe('1.0.0');
+      expect(result.targetVersion).toBe('3.0.0');
+      expect(result.wasMigrated).toBe(true);
+      expect(result.migrationPath?.steps).toHaveLength(2);
+
+      // Verify file
+      const content = await readFile(testFilePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(parsed.version).toBe('3.0.0');
+      expect(parsed.name).toBe('MyApp');
+      expect(parsed.server?.port).toBe(3000);
+    });
+
+    it('should skip writing when already at target version (skipIfCurrent: true)', async () => {
+      const graph = createTestGraph();
+      const configData: V2Config = {
+        version: '2.0.0',
+        appName: 'TestApp',
+        port: 8080,
+      };
+      await writeTestConfig(configData);
+
+      const result = await upgradeVersionedFile(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.sourceVersion).toBe('2.0.0');
+      expect(result.targetVersion).toBe('2.0.0');
+      expect(result.wasMigrated).toBe(false);
+      expect(result.wasWritten).toBe(false);
+      expect(result.migrationPath).toBeUndefined();
+
+      // File should be unchanged
+      const content = await readFile(testFilePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(parsed.port).toBe(8080);
+    });
+
+    it('should write when already at target version if skipIfCurrent: false', async () => {
+      const graph = createTestGraph();
+      const configData: V2Config = {
+        version: '2.0.0',
+        appName: 'TestApp',
+        port: 8080,
+      };
+      await writeTestConfig(configData);
+
+      const result = await upgradeVersionedFile(graph, testFilePath, {
+        targetVersion: '2.0.0',
+        skipIfCurrent: false,
+      });
+
+      expect(result.sourceVersion).toBe('2.0.0');
+      expect(result.targetVersion).toBe('2.0.0');
+      expect(result.wasMigrated).toBe(false);
+      expect(result.wasWritten).toBe(true);
+    });
+
+    it('should respect pretty option', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeTestConfig(configData);
+
+      await upgradeVersionedFile(graph, testFilePath, {
+        targetVersion: '2.0.0',
+        pretty: false,
+      });
+
+      const content = await readFile(testFilePath, 'utf-8');
+      expect(content).not.toContain('\n');
+    });
+  });
+
+  describe('negative cases', () => {
+    it('should throw VersionedFileError when file does not exist', async () => {
+      const graph = createTestGraph();
+      const nonExistentPath = join(testDir, 'nonexistent.json');
+
+      await expect(
+        upgradeVersionedFile(graph, nonExistentPath)
+      ).rejects.toThrowError(VersionedFileError);
+    });
+
+    it('should throw VersionedFileError when JSON is invalid', async () => {
+      const graph = createTestGraph();
+      await writeFile(testFilePath, '{ invalid json }', 'utf-8');
+
+      await expect(
+        upgradeVersionedFile(graph, testFilePath)
+      ).rejects.toThrowError(VersionedFileError);
+    });
+
+    it('should throw VersionedFileError when version field is missing', async () => {
+      const graph = createTestGraph();
+      await writeTestConfig({ appName: 'TestApp' });
+
+      await expect(
+        upgradeVersionedFile(graph, testFilePath)
+      ).rejects.toThrowError(VersionedFileError);
+    });
+
+    it('should throw error for YAML files (not yet supported)', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'config.yaml');
+      await writeFile(yamlPath, 'version: 1.0.0\nappName: TestApp\n', 'utf-8');
+
+      await expect(upgradeVersionedFile(graph, yamlPath)).rejects.toThrowError(
+        VersionedFileError
+      );
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should preserve pretty formatting by default', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeTestConfig(configData);
+
+      await upgradeVersionedFile(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      const content = await readFile(testFilePath, 'utf-8');
+      expect(content).toContain('\n');
+      expect(content).toContain('  ');
+    });
+
+    it('should handle upgrading from same version (no-op)', async () => {
+      const graph = createTestGraph();
+      const configData: V3Config = {
+        version: '3.0.0',
+        name: 'TestApp',
+        server: { port: 9000 },
+      };
+      await writeTestConfig(configData);
+
+      const result = await upgradeVersionedFile(graph, testFilePath);
+
+      expect(result.wasMigrated).toBe(false);
+      expect(result.wasWritten).toBe(false);
+    });
+  });
+});
+
+describe('watchVersionedFile', () => {
   describe('positive cases', () => {
     it('should call onUpdate when file changes', async () => {
       const graph = createTestGraph();
@@ -515,7 +714,7 @@ describe('watchConfig', () => {
       await writeTestConfig(initialConfig);
 
       const onUpdate = vi.fn();
-      const watcher = watchConfig(graph, testFilePath, {
+      const watcher = watchVersionedFile(graph, testFilePath, {
         targetVersion: '2.0.0',
         onUpdate,
         debounceMs: 50,
@@ -536,7 +735,7 @@ describe('watchConfig', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(onUpdate).toHaveBeenCalled();
-      const callArg = onUpdate.mock.calls[0][0] as LoadConfigResult<V2Config>;
+      const callArg = onUpdate.mock.calls[0][0] as LoadResult<V2Config>;
       expect(callArg.data.appName).toBe('UpdatedApp');
 
       watcher.stop();
@@ -551,7 +750,7 @@ describe('watchConfig', () => {
       await writeTestConfig(initialConfig);
 
       const onUpdate = vi.fn();
-      const watcher = watchConfig(graph, testFilePath, {
+      const watcher = watchVersionedFile(graph, testFilePath, {
         targetVersion: '3.0.0',
         onUpdate,
         debounceMs: 50,
@@ -568,7 +767,7 @@ describe('watchConfig', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(onUpdate).toHaveBeenCalled();
-      const callArg = onUpdate.mock.calls[0][0] as LoadConfigResult<V3Config>;
+      const callArg = onUpdate.mock.calls[0][0] as LoadResult<V3Config>;
       expect(callArg.data.version).toBe('3.0.0');
       expect(callArg.data.name).toBe('NewApp');
       expect(callArg.wasUpgraded).toBe(true);
@@ -585,7 +784,7 @@ describe('watchConfig', () => {
       await writeTestConfig(initialConfig);
 
       const onUpdate = vi.fn();
-      const watcher = watchConfig(graph, testFilePath, {
+      const watcher = watchVersionedFile(graph, testFilePath, {
         onUpdate,
         debounceMs: 50,
       });
@@ -615,7 +814,7 @@ describe('watchConfig', () => {
       await writeTestConfig(initialConfig);
 
       const onError = vi.fn();
-      const watcher = watchConfig(graph, testFilePath, {
+      const watcher = watchVersionedFile(graph, testFilePath, {
         onError,
         debounceMs: 50,
       });
@@ -629,7 +828,7 @@ describe('watchConfig', () => {
 
       expect(onError).toHaveBeenCalled();
       const error = onError.mock.calls[0][0] as Error;
-      expect(error).toBeInstanceOf(ConfigFileError);
+      expect(error).toBeInstanceOf(VersionedFileError);
 
       watcher.stop();
     });
@@ -643,7 +842,7 @@ describe('watchConfig', () => {
       await writeTestConfig(initialConfig);
 
       const onError = vi.fn();
-      const watcher = watchConfig(graph, testFilePath, {
+      const watcher = watchVersionedFile(graph, testFilePath, {
         onError,
         debounceMs: 50,
       });
@@ -670,7 +869,7 @@ describe('watchConfig', () => {
       await writeTestConfig(initialConfig);
 
       const onUpdate = vi.fn();
-      const watcher = watchConfig(graph, testFilePath, {
+      const watcher = watchVersionedFile(graph, testFilePath, {
         onUpdate,
         debounceMs: 100,
       });
@@ -748,10 +947,10 @@ describe('diffVersions', () => {
   });
 });
 
-describe('ConfigFileError', () => {
+describe('VersionedFileError', () => {
   it('should create error with filePath and cause', () => {
     const cause = new Error('Original error');
-    const error = new ConfigFileError(
+    const error = new VersionedFileError(
       'Failed to load',
       '/path/to/config.json',
       cause
@@ -760,11 +959,11 @@ describe('ConfigFileError', () => {
     expect(error.message).toBe('Failed to load');
     expect(error.filePath).toBe('/path/to/config.json');
     expect(error.cause).toBe(cause);
-    expect(error.name).toBe('ConfigFileError');
+    expect(error.name).toBe('VersionedFileError');
   });
 
   it('should be instanceof Error', () => {
-    const error = new ConfigFileError('Test', '/path');
+    const error = new VersionedFileError('Test', '/path');
     expect(error).toBeInstanceOf(Error);
   });
 });

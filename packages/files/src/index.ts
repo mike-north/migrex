@@ -1,8 +1,8 @@
 /**
- * \@migrex/files - File-based configuration integration for migrex
+ * \@migrex/files - File-based versioned data integration for migrex
  *
- * This package provides utilities for loading, saving, and watching
- * versioned configuration files.
+ * This package provides utilities for loading, saving, watching,
+ * and upgrading versioned files with automatic migration support.
  *
  * @packageDocumentation
  */
@@ -16,11 +16,11 @@ import type {
 } from '@migrex/core';
 
 /**
- * Options for loading a configuration file.
+ * Options for loading a versioned file.
  *
  * @public
  */
-export interface LoadConfigOptions {
+export interface LoadOptions {
   /**
    * Target version to migrate to.
    * If not specified, uses the latest version from the graph.
@@ -38,13 +38,13 @@ export interface LoadConfigOptions {
 }
 
 /**
- * Result of loading a configuration file.
+ * Result of loading a versioned file.
  *
- * @template T - The type of the loaded configuration data
+ * @template T - The type of the loaded data
  * @public
  */
-export interface LoadConfigResult<T> {
-  /** The loaded and migrated configuration data */
+export interface LoadResult<T> {
+  /** The loaded and migrated data */
   data: T;
 
   /** The version found in the source file */
@@ -61,11 +61,65 @@ export interface LoadConfigResult<T> {
 }
 
 /**
- * Options for saving a configuration file.
+ * Options for upgrading a versioned file in place.
  *
  * @public
  */
-export interface SaveConfigOptions {
+export interface UpgradeOptions {
+  /**
+   * Target version to upgrade to.
+   * If not specified, upgrades to the latest version from the graph.
+   */
+  targetVersion?: string;
+
+  /**
+   * File format to use for reading/writing.
+   * If not specified, detected from file extension (.json or .yaml).
+   *
+   * **Note:** YAML format is not yet supported.
+   */
+  format?: 'json' | 'yaml';
+
+  /**
+   * Whether to pretty-print the output (default: true).
+   */
+  pretty?: boolean;
+
+  /**
+   * If true, skip writing if the file is already at the target version.
+   * Default: true
+   */
+  skipIfCurrent?: boolean;
+}
+
+/**
+ * Result of upgrading a versioned file.
+ *
+ * @public
+ */
+export interface UpgradeResult {
+  /** The version found in the source file */
+  sourceVersion: string;
+
+  /** The version after upgrade */
+  targetVersion: string;
+
+  /** Whether the file was actually written (false if already at target version and skipIfCurrent is true) */
+  wasWritten: boolean;
+
+  /** Whether a migration was performed */
+  wasMigrated: boolean;
+
+  /** The migration path that was executed (if any) */
+  migrationPath?: MigrationPath;
+}
+
+/**
+ * Options for saving a versioned file.
+ *
+ * @public
+ */
+export interface SaveOptions {
   /**
    * Version to set in the saved file.
    * If not specified, attempts to detect from data or uses latest from graph.
@@ -88,11 +142,11 @@ export interface SaveConfigOptions {
 }
 
 /**
- * Options for watching a configuration file.
+ * Options for watching a versioned file.
  *
  * @public
  */
-export interface WatchConfigOptions {
+export interface WatchOptions {
   /**
    * Target version to migrate to when file changes.
    * If not specified, uses the latest version from the graph.
@@ -105,9 +159,9 @@ export interface WatchConfigOptions {
   debounceMs?: number;
 
   /**
-   * Callback invoked when the config is successfully reloaded and migrated.
+   * Callback invoked when the file is successfully reloaded and migrated.
    */
-  onUpdate?: (config: LoadConfigResult<unknown>) => void;
+  onUpdate?: (result: LoadResult<unknown>) => void;
 
   /**
    * Callback invoked when an error occurs during reload or migration.
@@ -116,11 +170,11 @@ export interface WatchConfigOptions {
 }
 
 /**
- * Handle for a configuration file watcher.
+ * Handle for a versioned file watcher.
  *
  * @public
  */
-export interface ConfigWatcher {
+export interface FileWatcher {
   /**
    * Stop watching the file and clean up resources.
    */
@@ -159,11 +213,11 @@ export interface VersionDiff {
 }
 
 /**
- * Error thrown when a configuration file cannot be loaded or parsed.
+ * Error thrown when a versioned file cannot be loaded, parsed, or written.
  *
  * @public
  */
-export class ConfigFileError extends Error {
+export class VersionedFileError extends Error {
   public override readonly cause?: unknown;
 
   constructor(
@@ -172,25 +226,25 @@ export class ConfigFileError extends Error {
     cause?: unknown
   ) {
     super(message);
-    this.name = 'ConfigFileError';
+    this.name = 'VersionedFileError';
     this.cause = cause;
   }
 }
 
 /**
- * Load a configuration file and automatically migrate to target version.
+ * Load a versioned file and automatically migrate to target version.
  *
- * @template T - The type of the loaded configuration data
+ * @template T - The type of the loaded data
  * @param graph - Migration graph containing schemas and migrations
- * @param filePath - Path to configuration file
+ * @param filePath - Path to versioned file
  * @param options - Loading options
- * @returns Promise resolving to loaded configuration with migration info
- * @throws {ConfigFileError} If file cannot be read or parsed
+ * @returns Promise resolving to loaded data with migration info
+ * @throws {VersionedFileError} If file cannot be read or parsed
  * @throws {MigrationError} If migration fails
  *
  * @example
  * ```typescript
- * const result = await loadConfig(graph, './app.config.json', {
+ * const result = await loadVersionedFile(graph, './data.json', {
  *   targetVersion: '2.0.0'
  * });
  * console.log(result.data);
@@ -201,18 +255,18 @@ export class ConfigFileError extends Error {
  *
  * @public
  */
-export async function loadConfig<T>(
+export async function loadVersionedFile<T>(
   graph: MigrationGraph,
   filePath: string,
-  options: LoadConfigOptions = {}
-): Promise<LoadConfigResult<T>> {
+  options: LoadOptions = {}
+): Promise<LoadResult<T>> {
   // Read file
   let content: string;
   try {
     content = await readFile(filePath, 'utf-8');
   } catch (error) {
-    throw new ConfigFileError(
-      `Failed to read config file: ${filePath}`,
+    throw new VersionedFileError(
+      `Failed to read file: ${filePath}`,
       filePath,
       error
     );
@@ -224,10 +278,10 @@ export async function loadConfig<T>(
   // Parse file
   let rawData: unknown;
   try {
-    rawData = parseConfig(content, format);
+    rawData = parseContent(content, format);
   } catch (error) {
-    throw new ConfigFileError(
-      `Failed to parse config file as ${format.toUpperCase()}: ${filePath}`,
+    throw new VersionedFileError(
+      `Failed to parse file as ${format.toUpperCase()}: ${filePath}`,
       filePath,
       error
     );
@@ -236,8 +290,8 @@ export async function loadConfig<T>(
   // Extract source version
   const sourceVersion = extractVersion(rawData);
   if (!sourceVersion) {
-    throw new ConfigFileError(
-      `Config file missing 'version' field: ${filePath}`,
+    throw new VersionedFileError(
+      `File missing 'version' field: ${filePath}`,
       filePath
     );
   }
@@ -258,8 +312,8 @@ export async function loadConfig<T>(
     );
 
     if (!result.success) {
-      throw new ConfigFileError(
-        `Failed to migrate config from ${sourceVersion} to ${targetVersion}: ${result.error?.message}`,
+      throw new VersionedFileError(
+        `Failed to migrate from ${sourceVersion} to ${targetVersion}: ${result.error?.message}`,
         filePath,
         result.error
       );
@@ -271,7 +325,7 @@ export async function loadConfig<T>(
     // No migration needed, validate only
     const schema = graph.getSchema(sourceVersion);
     if (!schema) {
-      throw new ConfigFileError(
+      throw new VersionedFileError(
         `No schema registered for version ${sourceVersion}`,
         filePath
       );
@@ -279,8 +333,8 @@ export async function loadConfig<T>(
 
     const validationResult = schema.schema(rawData);
     if (!validationResult.success) {
-      throw new ConfigFileError(
-        `Config validation failed: ${formatValidationErrors(validationResult.errors ?? [])}`,
+      throw new VersionedFileError(
+        `Validation failed: ${formatValidationErrors(validationResult.errors ?? [])}`,
         filePath
       );
     }
@@ -298,18 +352,18 @@ export async function loadConfig<T>(
 }
 
 /**
- * Save configuration to a file.
+ * Save data to a versioned file.
  *
  * @param graph - Migration graph (used to determine version if not specified)
- * @param filePath - Path to configuration file
- * @param data - Configuration data to save
+ * @param filePath - Path to file
+ * @param data - Data to save
  * @param options - Save options
  * @returns Promise that resolves when file is written
- * @throws {ConfigFileError} If file cannot be written
+ * @throws {VersionedFileError} If file cannot be written or validation fails
  *
  * @example
  * ```typescript
- * await saveConfig(graph, './app.config.json', {
+ * await saveVersionedFile(graph, './data.json', {
  *   version: '2.0.0',
  *   name: 'My App',
  *   port: 3000
@@ -318,11 +372,11 @@ export async function loadConfig<T>(
  *
  * @public
  */
-export async function saveConfig(
+export async function saveVersionedFile(
   graph: MigrationGraph,
   filePath: string,
   data: unknown,
-  options: SaveConfigOptions = {}
+  options: SaveOptions = {}
 ): Promise<void> {
   // Determine version
   const version =
@@ -342,15 +396,15 @@ export async function saveConfig(
   if (schema) {
     const validationResult = schema.schema(dataWithVersion);
     if (!validationResult.success) {
-      throw new ConfigFileError(
-        `Cannot save invalid config: ${formatValidationErrors(validationResult.errors ?? [])}`,
+      throw new VersionedFileError(
+        `Cannot save invalid data: ${formatValidationErrors(validationResult.errors ?? [])}`,
         filePath
       );
     }
   }
 
   // Serialize
-  const content = serializeConfig(
+  const content = serializeContent(
     dataWithVersion,
     format,
     options.pretty ?? true
@@ -360,8 +414,8 @@ export async function saveConfig(
   try {
     await writeFile(filePath, content, 'utf-8');
   } catch (error) {
-    throw new ConfigFileError(
-      `Failed to write config file: ${filePath}`,
+    throw new VersionedFileError(
+      `Failed to write file: ${filePath}`,
       filePath,
       error
     );
@@ -369,22 +423,100 @@ export async function saveConfig(
 }
 
 /**
- * Watch a configuration file for changes and automatically reload/migrate.
+ * Upgrade a versioned file in place to a target version.
+ *
+ * This function reads the file, migrates it to the target version,
+ * and writes it back to disk. The file is updated in place with the new
+ * version and migrated data.
+ *
+ * @param graph - Migration graph containing schemas and migrations
+ * @param filePath - Path to versioned file
+ * @param options - Upgrade options
+ * @returns Promise resolving to upgrade result with migration info
+ * @throws {VersionedFileError} If file cannot be read, parsed, or written
+ * @throws {MigrationError} If migration fails
+ *
+ * @example
+ * ```typescript
+ * // Upgrade a file to the latest version
+ * const result = await upgradeVersionedFile(graph, './data.json');
+ * if (result.wasMigrated) {
+ *   console.log(`Upgraded from ${result.sourceVersion} to ${result.targetVersion}`);
+ * }
+ *
+ * // Upgrade to a specific version
+ * const result = await upgradeVersionedFile(graph, './data.json', {
+ *   targetVersion: '2.0.0'
+ * });
+ * ```
+ *
+ * @public
+ */
+export async function upgradeVersionedFile(
+  graph: MigrationGraph,
+  filePath: string,
+  options: UpgradeOptions = {}
+): Promise<UpgradeResult> {
+  const skipIfCurrent = options.skipIfCurrent ?? true;
+  const targetVersion = options.targetVersion ?? getLatestVersion(graph);
+
+  // Load and migrate the file
+  const loadOptions: LoadOptions = { targetVersion };
+  if (options.format !== undefined) {
+    loadOptions.format = options.format;
+  }
+  const loadResult = await loadVersionedFile(graph, filePath, loadOptions);
+
+  const wasMigrated = loadResult.wasUpgraded;
+
+  // If already at target version and skipIfCurrent is true, don't write
+  if (!wasMigrated && skipIfCurrent) {
+    return {
+      sourceVersion: loadResult.sourceVersion,
+      targetVersion: loadResult.targetVersion,
+      wasWritten: false,
+      wasMigrated: false,
+    };
+  }
+
+  // Write the migrated data back to disk
+  const saveOptions: SaveOptions = {
+    version: targetVersion,
+    pretty: options.pretty ?? true,
+  };
+  if (options.format !== undefined) {
+    saveOptions.format = options.format;
+  }
+  await saveVersionedFile(graph, filePath, loadResult.data, saveOptions);
+
+  return {
+    sourceVersion: loadResult.sourceVersion,
+    targetVersion: loadResult.targetVersion,
+    wasWritten: true,
+    wasMigrated,
+    ...(loadResult.migrationPath !== undefined
+      ? { migrationPath: loadResult.migrationPath }
+      : {}),
+  };
+}
+
+/**
+ * Watch a versioned file for changes and automatically reload/migrate.
  *
  * @param graph - Migration graph for loading and migrating
- * @param filePath - Path to configuration file to watch
+ * @param filePath - Path to file to watch
  * @param options - Watch options
  * @returns Watcher handle with stop() method
  *
  * @example
  * ```typescript
- * const watcher = watchConfig(graph, './app.config.json', {
+ * const watcher = watchVersionedFile(graph, './data.json', {
  *   targetVersion: '2.0.0',
- *   onUpdate: (config) => {
- *     console.log('Config updated:', config.data);
+ *   onUpdate: (result) => {
+ *     console.log('File updated:', result.data);
  *   },
  *   onError: (error) => {
- *     console.error('Config error:', error);
+ *     console.error('Error:', error);
  *   }
  * });
  *
@@ -394,11 +526,11 @@ export async function saveConfig(
  *
  * @public
  */
-export function watchConfig(
+export function watchVersionedFile(
   graph: MigrationGraph,
   filePath: string,
-  options: WatchConfigOptions = {}
-): ConfigWatcher {
+  options: WatchOptions = {}
+): FileWatcher {
   const debounceMs = options.debounceMs ?? 100;
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -412,11 +544,11 @@ export function watchConfig(
     debounceTimer = setTimeout(() => {
       void (async () => {
         try {
-          const loadOptions: LoadConfigOptions =
+          const loadOptions: LoadOptions =
             options.targetVersion !== undefined
               ? { targetVersion: options.targetVersion }
               : {};
-          const result = await loadConfig(graph, filePath, loadOptions);
+          const result = await loadVersionedFile(graph, filePath, loadOptions);
           options.onUpdate?.(result);
         } catch (error) {
           options.onError?.(error as Error);
@@ -513,7 +645,7 @@ export function diffVersions(
 // ============================================================================
 
 /**
- * Detect configuration format from file extension.
+ * Detect file format from file extension.
  */
 function detectFormat(filePath: string): 'json' | 'yaml' {
   if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
@@ -523,9 +655,9 @@ function detectFormat(filePath: string): 'json' | 'yaml' {
 }
 
 /**
- * Parse configuration content based on format.
+ * Parse file content based on format.
  */
-function parseConfig(content: string, format: 'json' | 'yaml'): unknown {
+function parseContent(content: string, format: 'json' | 'yaml'): unknown {
   if (format === 'yaml') {
     throw new Error(
       'YAML format not yet supported. Please install a YAML parser library and configure it.'
@@ -536,9 +668,9 @@ function parseConfig(content: string, format: 'json' | 'yaml'): unknown {
 }
 
 /**
- * Serialize configuration to string based on format.
+ * Serialize data to string based on format.
  */
-function serializeConfig(
+function serializeContent(
   data: unknown,
   format: 'json' | 'yaml',
   pretty: boolean

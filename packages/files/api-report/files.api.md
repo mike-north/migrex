@@ -7,34 +7,22 @@
 import type { MigrationGraph } from '@migrex/core';
 import type { MigrationPath } from '@migrex/core';
 
-// @public
-export class ConfigFileError extends Error {
-    constructor(message: string, filePath: string, cause?: unknown);
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly filePath: string;
-}
-
-// @public
-export interface ConfigWatcher {
-    stop(): void;
-}
-
 // @beta
 export function diffVersions(graph: MigrationGraph, fromVersion: string, toVersion: string): VersionDiff;
 
 // @public
-export function loadConfig<T>(graph: MigrationGraph, filePath: string, options?: LoadConfigOptions): Promise<LoadConfigResult<T>>;
+export interface FileWatcher {
+    stop(): void;
+}
 
 // @public
-export interface LoadConfigOptions {
+export interface LoadOptions {
     format?: 'json' | 'yaml';
     targetVersion?: string;
 }
 
 // @public
-export interface LoadConfigResult<T> {
+export interface LoadResult<T> {
     data: T;
     migrationPath?: MigrationPath;
     sourceVersion: string;
@@ -43,14 +31,37 @@ export interface LoadConfigResult<T> {
 }
 
 // @public
-export function saveConfig(graph: MigrationGraph, filePath: string, data: unknown, options?: SaveConfigOptions): Promise<void>;
+export function loadVersionedFile<T>(graph: MigrationGraph, filePath: string, options?: LoadOptions): Promise<LoadResult<T>>;
 
 // @public
-export interface SaveConfigOptions {
+export interface SaveOptions {
     format?: 'json' | 'yaml';
     pretty?: boolean;
     version?: string;
 }
+
+// @public
+export function saveVersionedFile(graph: MigrationGraph, filePath: string, data: unknown, options?: SaveOptions): Promise<void>;
+
+// @public
+export interface UpgradeOptions {
+    format?: 'json' | 'yaml';
+    pretty?: boolean;
+    skipIfCurrent?: boolean;
+    targetVersion?: string;
+}
+
+// @public
+export interface UpgradeResult {
+    migrationPath?: MigrationPath;
+    sourceVersion: string;
+    targetVersion: string;
+    wasMigrated: boolean;
+    wasWritten: boolean;
+}
+
+// @public
+export function upgradeVersionedFile(graph: MigrationGraph, filePath: string, options?: UpgradeOptions): Promise<UpgradeResult>;
 
 // @public
 export interface VersionDiff {
@@ -62,14 +73,23 @@ export interface VersionDiff {
 }
 
 // @public
-export function watchConfig(graph: MigrationGraph, filePath: string, options?: WatchConfigOptions): ConfigWatcher;
+export class VersionedFileError extends Error {
+    constructor(message: string, filePath: string, cause?: unknown);
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly filePath: string;
+}
 
 // @public
-export interface WatchConfigOptions {
+export interface WatchOptions {
     debounceMs?: number;
     onError?: (error: Error) => void;
-    onUpdate?: (config: LoadConfigResult<unknown>) => void;
+    onUpdate?: (result: LoadResult<unknown>) => void;
     targetVersion?: string;
 }
+
+// @public
+export function watchVersionedFile(graph: MigrationGraph, filePath: string, options?: WatchOptions): FileWatcher;
 
 ```
