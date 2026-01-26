@@ -4,17 +4,236 @@
 
 ```ts
 
+import type { AnalysisResult } from '@migrex/core';
+import type { DeprecatedVersionInfo } from '@migrex/core';
+import type { LossyPathReport } from '@migrex/core';
+import type { MigrationGraph } from '@migrex/core';
+import type { MigrationPath } from '@migrex/core';
+import type { MigrationSuggestion } from '@migrex/core';
+
 // @public
-export interface CommandHandler {
-    description: string;
-    run: (args: readonly string[]) => Promise<void>;
-    usage: string;
+export function analyzeCommand(options: AnalyzeOptions): Promise<AnalyzeResult>;
+
+// @public
+export interface AnalyzeOptions {
+    format?: 'json' | 'text';
+    graph?: string;
 }
 
 // @public
-export const commands: Record<string, CommandHandler>;
+export interface AnalyzeResult {
+    error?: string;
+    exitCode: ExitCode;
+}
 
 // @public
-export function runCli(args: readonly string[]): Promise<void>;
+export function checkCommand(options: CheckOptions): Promise<CheckResult>;
+
+// @public
+export interface CheckOptions {
+    graph?: string;
+    json?: boolean;
+    strict?: boolean;
+}
+
+// @public
+export interface CheckResult {
+    analysis?: AnalysisResult;
+    error?: string;
+    exitCode: ExitCode;
+}
+
+// @public
+export interface ConfigTemplateOptions {
+    initialVersion?: string;
+    plugin: 'zod' | 'json-schema';
+}
+
+// @public
+export function diffCommand(options: DiffOptions): Promise<DiffResult>;
+
+// @public
+export interface DiffOptions {
+    format?: 'json' | 'text';
+    from: string;
+    graph?: string;
+    to: string;
+}
+
+// @public
+export interface DiffResult {
+    error?: string;
+    exitCode: ExitCode;
+}
+
+// @public
+const ExitCode: {
+    readonly SUCCESS: 0;
+    readonly GENERAL_ERROR: 1;
+    readonly CONFIG_ERROR: 2;
+    readonly VALIDATION_ERROR: 3;
+    readonly FILE_NOT_FOUND: 4;
+};
+
+// @public
+type ExitCode = (typeof ExitCode)[keyof typeof ExitCode];
+export { ExitCode }
+export { ExitCode as ExitCodeType }
+
+// @public
+export function formatAnalysisJson(analysis: AnalysisResult): string;
+
+// @public
+export function formatAnalysisText(analysis: AnalysisResult): string;
+
+// @public
+export function formatDeprecatedVersionsJson(versions: readonly DeprecatedVersionInfo[]): string;
+
+// @public
+export function formatDeprecatedVersionsText(versions: readonly DeprecatedVersionInfo[]): string;
+
+// @public
+export function formatLossyPathsJson(report: LossyPathReport): string;
+
+// @public
+export function formatLossyPathsText(report: LossyPathReport): string;
+
+// @public
+export function formatMigrationPath(path: MigrationPath): string;
+
+// @public
+export function formatMigrationPathJson(path: MigrationPath): string;
+
+// @public
+export function formatSuggestionsJson(suggestions: readonly MigrationSuggestion[]): string;
+
+// @public
+export function formatSuggestionsText(suggestions: readonly MigrationSuggestion[]): string;
+
+// @public
+export function generateConfigTemplate(options: ConfigTemplateOptions): string;
+
+// @public
+export function generateGitignoreTemplate(): string;
+
+// @public
+export function generateMigrationTemplate(options: MigrationTemplateOptions): string;
+
+// @public
+export function generateReadmeTemplate(options: ConfigTemplateOptions): string;
+
+// @public
+export function generateSchemaTemplate(options: SchemaTemplateOptions): string;
+
+// @public
+export function generateTypesCommand(options: GenerateTypesOptions): Promise<GenerateTypesResult>;
+
+// @public
+export interface GenerateTypesOptions {
+    graph?: string;
+    output?: string;
+}
+
+// @public
+export interface GenerateTypesResult {
+    error?: string;
+    exitCode: ExitCode;
+    outputPath?: string;
+}
+
+// @public
+export function initCommand(options: InitOptions): Promise<InitResult>;
+
+// @public
+export interface InitOptions {
+    plugin?: 'zod' | 'json-schema';
+    version?: string;
+}
+
+// @public
+export interface InitResult {
+    error?: string;
+    exitCode: ExitCode;
+    filesCreated?: string[];
+}
+
+// @public
+export function loadGraph(graphPath?: string): Promise<LoadResult | undefined>;
+
+// @public
+export interface LoadResult {
+    graph: MigrationGraph;
+    path: string;
+}
+
+// @public
+export const logger: {
+    info(message: string): void;
+    success(message: string): void;
+    warn(message: string): void;
+    error(message: string): void;
+    log(message: string): void;
+    debug(message: string): void;
+    bold(message: string): void;
+};
+
+// @public
+export interface MigrationTemplateOptions {
+    from: string;
+    plugin: 'zod' | 'json-schema';
+    to: string;
+}
+
+// @public
+export function newMigrationCommand(options: NewMigrationOptions): Promise<NewResult>;
+
+// @public
+export interface NewMigrationOptions {
+    from: string;
+    plugin?: 'zod' | 'json-schema';
+    to: string;
+}
+
+// @public
+export interface NewResult {
+    error?: string;
+    exitCode: ExitCode;
+    fileCreated?: string;
+}
+
+// @public
+export function newSchemaCommand(options: NewSchemaOptions): Promise<NewResult>;
+
+// @public
+export interface NewSchemaOptions {
+    plugin?: 'zod' | 'json-schema';
+    version: string;
+}
+
+// @public
+export function pathCommand(options: PathOptions): Promise<PathResult>;
+
+// @public
+export interface PathOptions {
+    format?: 'json' | 'text';
+    from: string;
+    graph?: string;
+    to: string;
+}
+
+// @public
+export interface PathResult {
+    error?: string;
+    exitCode: ExitCode;
+}
+
+// @public
+export function runCli(args: string[]): Promise<void>;
+
+// @public
+export interface SchemaTemplateOptions {
+    plugin: 'zod' | 'json-schema';
+    version: string;
+}
 
 ```

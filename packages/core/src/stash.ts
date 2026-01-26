@@ -1,3 +1,4 @@
+import deepEqual from 'fast-deep-equal';
 import type {
   PreservedField,
   SingleValuePreservation,
@@ -282,13 +283,11 @@ export class PreservationStash {
   }
 
   /**
-   * Deep equality check for values.
+   * Deep equality check for values using fast-deep-equal.
+   * Handles edge cases like NaN, undefined, circular references better than JSON.stringify.
    */
   private valuesEquivalent(a: unknown, b: unknown): boolean {
-    // Deep equality check using JSON serialization
-    // Note: This has limitations (e.g., doesn't handle undefined, functions, symbols)
-    // but works well for typical JSON-serializable data
-    return JSON.stringify(a) === JSON.stringify(b);
+    return deepEqual(a, b);
   }
 
   /**

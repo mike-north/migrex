@@ -115,12 +115,15 @@ const migrationV1ToV2: ReversibleMigration<UserV1, UserV2> = {
 };
 
 // Create the migration graph
-const graph = createMigrationGraph(semverStrategy);
+const graph = createMigrationGraph({
+  id: 'user-graph',
+  versionStrategy: semverStrategy,
+});
 
 // Register schemas and migrations
-graph.register(schemaV1);
-graph.register(schemaV2);
-graph.addMigration(migrationV1ToV2);
+graph.registerSchema(schemaV1);
+graph.registerSchema(schemaV2);
+graph.registerMigration(migrationV1ToV2);
 
 // Migrate data from v1 to v2
 const v1Data: UserV1 = { version: '1.0.0', name: 'John Doe' };
@@ -203,12 +206,15 @@ const migrationV2ToV3: ReversibleMigration<V2, V3> = {
 };
 
 // Now v1 -> v2 -> v3 migration preserves the theme field
-const graph = createMigrationGraph(semverStrategy);
-graph.register(schemaV1);
-graph.register(schemaV2);
-graph.register(schemaV3);
-graph.addMigration(migrationV1ToV2);
-graph.addMigration(migrationV2ToV3);
+const graph = createMigrationGraph({
+  id: 'theme-example',
+  versionStrategy: semverStrategy,
+});
+graph.registerSchema(schemaV1);
+graph.registerSchema(schemaV2);
+graph.registerSchema(schemaV3);
+graph.registerMigration(migrationV1ToV2);
+graph.registerMigration(migrationV2ToV3);
 
 const v1Data: V1 = { version: '1.0.0', name: 'Alice', theme: 'dark' };
 const result = graph.migrate(v1Data, '1.0.0', '3.0.0');
@@ -286,27 +292,36 @@ Migrex supports three versioning strategies:
 ### Semantic Versioning (semver)
 
 ```typescript
-import { semverStrategy } from '@migrex/core';
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
 
-const graph = createMigrationGraph(semverStrategy);
+const graph = createMigrationGraph({
+  id: 'my-graph',
+  versionStrategy: semverStrategy,
+});
 // Versions: '1.0.0', '1.1.0', '2.0.0', etc.
 ```
 
 ### Calendar Versioning (calver)
 
 ```typescript
-import { calverStrategy } from '@migrex/core';
+import { createMigrationGraph, calverStrategy } from '@migrex/core';
 
-const graph = createMigrationGraph(calverStrategy);
+const graph = createMigrationGraph({
+  id: 'my-graph',
+  versionStrategy: calverStrategy,
+});
 // Versions: '2024.01.15', '2024.02.01', etc.
 ```
 
 ### Integer Versioning
 
 ```typescript
-import { integerStrategy } from '@migrex/core';
+import { createMigrationGraph, integerStrategy } from '@migrex/core';
 
-const graph = createMigrationGraph(integerStrategy);
+const graph = createMigrationGraph({
+  id: 'my-graph',
+  versionStrategy: integerStrategy,
+});
 // Versions: '1', '2', '3', etc.
 ```
 
@@ -323,10 +338,11 @@ const graph = createMigrationGraph(integerStrategy);
 
 ### Core Functions
 
-- `createMigrationGraph(strategy)` - Create a new migration graph
-- `graph.register(schema)` - Register a version schema
-- `graph.addMigration(migration)` - Add a migration
+- `createMigrationGraph(options)` - Create a new migration graph with `{ id, versionStrategy }`
+- `graph.registerSchema(schema)` - Register a version schema
+- `graph.registerMigration(migration)` - Add a migration between versions
 - `graph.migrate(data, from, to)` - Execute migrations
+- `graph.migrateAsync(data, from, to)` - Execute async migrations
 - `analyzeGraph(graph, options?)` - Analyze graph health
 - `findLossyPaths(graph)` - Find data-losing paths
 - `suggestMigrations(graph)` - Get improvement suggestions

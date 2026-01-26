@@ -4,52 +4,42 @@
 
 ```ts
 
-// @public (undocumented)
+import type { Linter } from 'eslint';
+import type { MigrationGraph } from '@migrex/core';
+import { RuleListener } from '@typescript-eslint/utils/ts-eslint';
+import { RuleModule } from '@typescript-eslint/utils/ts-eslint';
+
+// @public
 export const configs: {
-    recommended: {
-        plugins: string[];
-        rules: {
-            '@migrex/consume-check': string;
-            '@migrex/graph-health': string;
-        };
-    };
+    readonly recommended: Linter.Config;
+    readonly strict: Linter.Config;
 };
 
 // @public
-export const rules: {
-    'consume-check': {
-        meta: {
-            type: "problem";
-            docs: {
-                description: string;
-                recommended: boolean;
-            };
-            schema: never[];
-        };
-        create(_context: unknown): {};
+const plugin: {
+    rules: {
+        readonly 'consume-check': RuleModule<"missingMultiHandling" | "unsafeFieldAccess" | "missingKindCheck", [ConsumeCheckRuleOptions?], unknown, RuleListener>;
+        readonly 'graph-health': RuleModule<"disconnectedVersions" | "deprecatedVersionInPath" | "lossyPath" | "suggestMigration", [GraphHealthRuleOptions?], unknown, RuleListener>;
+        readonly 'preserve-metadata': RuleModule<"missingMetadata" | "missingRequiredField" | "addMetadata" | "addMetadataWithFields", [PreserveMetadataRuleOptions?], unknown, RuleListener>;
     };
-    'graph-health': {
-        meta: {
-            type: "suggestion";
-            docs: {
-                description: string;
-                recommended: boolean;
-            };
-            schema: never[];
-        };
-        create(_context: unknown): {};
-    };
-    'preserve-metadata': {
-        meta: {
-            type: "suggestion";
-            docs: {
-                description: string;
-                recommended: boolean;
-            };
-            schema: never[];
-        };
-        create(_context: unknown): {};
+    configs: {
+        readonly recommended: Linter.Config;
+        readonly strict: Linter.Config;
     };
 };
+export default plugin;
+
+// @public
+export const rules: {
+    readonly 'consume-check': RuleModule<"missingMultiHandling" | "unsafeFieldAccess" | "missingKindCheck", [ConsumeCheckRuleOptions?], unknown, RuleListener>;
+    readonly 'graph-health': RuleModule<"disconnectedVersions" | "deprecatedVersionInPath" | "lossyPath" | "suggestMigration", [GraphHealthRuleOptions?], unknown, RuleListener>;
+    readonly 'preserve-metadata': RuleModule<"missingMetadata" | "missingRequiredField" | "addMetadata" | "addMetadataWithFields", [PreserveMetadataRuleOptions?], unknown, RuleListener>;
+};
+
+// Warnings were encountered during analysis:
+//
+// src/index.ts:50:1 - (ae-forgotten-export) The symbol "ConsumeCheckRuleOptions" needs to be exported by the entry point index.d.ts
+// src/index.ts:51:1 - (ae-forgotten-export) The symbol "GraphHealthRuleOptions" needs to be exported by the entry point index.d.ts
+// src/index.ts:52:1 - (ae-forgotten-export) The symbol "PreserveMetadataRuleOptions" needs to be exported by the entry point index.d.ts
 
 ```

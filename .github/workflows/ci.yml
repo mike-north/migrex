@@ -33,6 +33,18 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Build type declarations for core first
+        run: cd packages/core && pnpm build:types
+
+      - name: Update API surface for core first
+        run: cd packages/core && pnpm generate:api-report
+
+      - name: Build type declarations for all
+        run: pnpm build:types
+
+      - name: Update API surface for all
+        run: pnpm generate:api-reports
+
       - name: Type check
         run: pnpm typecheck
 
@@ -42,14 +54,11 @@ jobs:
       - name: Test
         run: pnpm test:run
 
-      - name: Build type declarations
-        run: pnpm build:types
-
-      - name: Check API surface
-        run: pnpm api:check
-
       - name: Check for unused dependencies
         run: pnpm knip
 
       - name: Check dependency versions
         run: pnpm syncpack:check
+
+      - name: Check API surface
+        run: pnpm check:api-reports

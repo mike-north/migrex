@@ -6,7 +6,8 @@
     "migrex": "./dist/index.js"
   },
   "dependencies": {
-    "@migrex/core": "workspace:*"
+    "@migrex/core": "workspace:*",
+    "commander": "^12.1.0"
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
@@ -21,11 +22,11 @@
   ],
   "main": "./dist/index.js",
   "scripts": {
-    "api:check": "api-extractor run",
-    "api:update": "api-extractor run --local",
-    "build": "tsup",
+    "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",
+    "check:api-report": "api-extractor run",
     "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "generate:api-report": "api-extractor run --local",
     "test": "vitest run",
     "test:watch": "vitest"
   },

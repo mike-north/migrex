@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "author": "Mike North <michael.l.north@gmail.com>",
   "devDependencies": {
+    "@api-extractor-tools/declaration-file-normalizer": "0.1.0-alpha.6",
     "@changesets/changelog-github": "^0.5.2",
     "@changesets/cli": "^2.29.8",
     "@eslint/js": "^9.0.0",
@@ -25,17 +26,19 @@
   "packageManager": "pnpm@10.24.0",
   "private": true,
   "scripts": {
-    "api:check": "pnpm -r api:check",
-    "api:update": "pnpm -r api:update",
     "build": "pnpm -r build",
     "build:types": "pnpm -r build:types",
     "changeset": "changeset",
     "changeset:publish": "pnpm build && changeset publish",
     "changeset:version": "changeset version",
+    "check:api-report": "pnpm -r check:api-report",
+    "check:api-reports": "pnpm -r check:api-report",
     "clean": "pnpm -r clean",
     "docs": "api-documenter markdown -i packages/*/temp -o docs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "generate:api-report": "pnpm -r generate:api-report",
+    "generate:api-reports": "pnpm -r generate:api-report",
     "knip": "knip",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -45,6 +48,7 @@
     "test:run": "vitest run",
     "test:types": "pnpm -r test:types",
     "typecheck": "tsc -b",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test:run && pnpm api:check && pnpm knip"
-  }
+    "validate": "pnpm typecheck && pnpm lint && pnpm test:run && pnpm check:api-reports && pnpm knip"
+  },
+  "type": "module"
 }

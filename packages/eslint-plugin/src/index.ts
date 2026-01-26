@@ -6,58 +6,48 @@
  * @packageDocumentation
  */
 
-// ESLint plugin structure
+import type { Linter } from 'eslint';
+import { consumeCheck, graphHealth, preserveMetadata } from './rules/index.js';
+import { recommended, strict } from './configs/index.js';
+
+/**
+ * ESLint rules provided by this plugin.
+ */
 export const rules = {
-  'consume-check': {
-    meta: {
-      type: 'problem' as const,
-      docs: {
-        description: 'Verify consume() calls handle the correct single/multi case',
-        recommended: true,
-      },
-      schema: [],
+  'consume-check': consumeCheck,
+  'graph-health': graphHealth,
+  'preserve-metadata': preserveMetadata,
+} as const;
+
+/**
+ * ESLint configuration presets.
+ */
+export const configs: {
+  readonly recommended: Linter.Config;
+  readonly strict: Linter.Config;
+} = {
+  recommended: {
+    plugins: {
+       
+      '@migrex': { rules } as unknown,
     },
-    create(_context: unknown) {
-      // TODO: Implement rule
-      return {};
+    ...recommended,
+  } as unknown as Linter.Config,
+  strict: {
+    plugins: {
+       
+      '@migrex': { rules } as unknown,
     },
-  },
-  'graph-health': {
-    meta: {
-      type: 'suggestion' as const,
-      docs: {
-        description: 'Report connectivity issues, deprecated version usage, lossy paths',
-        recommended: true,
-      },
-      schema: [],
-    },
-    create(_context: unknown) {
-      // TODO: Implement rule
-      return {};
-    },
-  },
-  'preserve-metadata': {
-    meta: {
-      type: 'suggestion' as const,
-      docs: {
-        description: 'Warn when preserve() is called without metadata',
-        recommended: false,
-      },
-      schema: [],
-    },
-    create(_context: unknown) {
-      // TODO: Implement rule
-      return {};
-    },
-  },
+    ...strict,
+  } as unknown as Linter.Config,
 };
 
-export const configs = {
-  recommended: {
-    plugins: ['@migrex'],
-    rules: {
-      '@migrex/consume-check': 'error',
-      '@migrex/graph-health': 'warn',
-    },
-  },
+/**
+ * Default export for ESLint 9 flat config.
+ */
+const plugin = {
+  rules,
+  configs,
 };
+
+export default plugin;

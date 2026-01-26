@@ -4,6 +4,7 @@
   "version": "0.2.0-alpha.0",
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
+    "@types/node": "^20.19.30",
     "tsup": "^8.0.0",
     "typescript": "^5.7.0"
   },
@@ -15,14 +16,15 @@
   ],
   "main": "./dist/index.js",
   "peerDependencies": {
+    "@migrex/core": "workspace:*",
     "typescript": "^5.0.0"
   },
   "scripts": {
-    "api:check": "api-extractor run",
-    "api:update": "api-extractor run --local",
-    "build": "tsup",
+    "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",
+    "check:api-report": "api-extractor run",
     "clean": "rm -rf dist temp/*.d.ts temp/*.api.json",
+    "generate:api-report": "api-extractor run --local",
     "test": "vitest run",
     "test:watch": "vitest"
   },
