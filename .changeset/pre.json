@@ -13,6 +13,7 @@
     "@migrex/zod": "0.1.0"
   },
   "changesets": [
+    "cool-agents-learn",
     "strong-keys-hang"
   ]
 }
