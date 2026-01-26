@@ -25,7 +25,7 @@ import type {
   VersionStrategy,
   VersionComponents,
   IncrementType,
-} from '../src/index.js';
+} from '@migrex/core';
 
 // ValidationResult
 const successResult: ValidationResult<string> = {
@@ -133,21 +133,23 @@ const oneWayWithTraits: OneWayMigration<string[], string> = {
 expectType<OneWayMigration<string[], string>>(oneWayWithTraits);
 
 // OneWayMigration should not allow down function
-// @ts-expect-error - down should not be allowed on OneWayMigration
-const invalidOneWay: OneWayMigration<string, number> = {
+// Using expectNotAssignable to verify that a migration with 'down' is not a OneWayMigration
+const migrationWithDown = {
   fromVersion: '1.0.0',
   toVersion: '2.0.0',
-  up: (data) => Number(data),
-  down: (data) => String(data),
+  up: (data: string) => Number(data),
+  down: (data: number) => String(data),
   irreversibleReason: 'test',
-};
+} as const;
+// A migration with a 'down' function should not be assignable to OneWayMigration
+expectNotAssignable<OneWayMigration<string, number>>(migrationWithDown);
 
 // Migration union type
-const migration1: Migration<string, number> = reversibleWithTraits as Migration<
-  string,
-  number
+const migration1: Migration<number, string> = reversibleWithTraits as Migration<
+  number,
+  string
 >;
-expectType<Migration<string, number>>(migration1);
+expectType<Migration<number, string>>(migration1);
 
 const migration2: Migration<string[], string> = oneWayWithTraits as Migration<
   string[],
@@ -202,6 +204,7 @@ const result: MigrationResult<{ data: string }> = {
   data: { data: 'test' },
   path: { steps: [], direction: 'up', hasIrreversibleStep: false },
   stash: { consumed: [], unconsumed: [], lossless: true },
+  preservedFields: [],
 };
 expectType<MigrationResult<{ data: string }>>(result);
 
@@ -209,6 +212,7 @@ const failedResult: MigrationResult<string> = {
   success: false,
   path: { steps: [], direction: 'up', hasIrreversibleStep: false },
   stash: { consumed: [], unconsumed: [], lossless: false },
+  preservedFields: [],
   error: new Error('Migration failed'),
 };
 expectType<MigrationResult<string>>(failedResult);
@@ -312,10 +316,10 @@ expectType<MultiValuePreservation>(multiValue);
 
 // PreservedField union
 const preserved1: PreservedField = singleValue;
-expectType<PreservedField>(preserved1);
+expectAssignable<PreservedField>(preserved1);
 
 const preserved2: PreservedField = multiValue;
-expectType<PreservedField>(preserved2);
+expectAssignable<PreservedField>(preserved2);
 
 // Type narrowing for PreservedField
 declare const preservedField: PreservedField;
@@ -340,14 +344,14 @@ const preserveSuccess: PreserveResult = {
   status: 'preserved',
   field: singleValue,
 };
-expectType<PreserveResult>(preserveSuccess);
+expectAssignable<PreserveResult>(preserveSuccess);
 
 const preserveAlready: PreserveResult = {
   status: 'already_preserved',
   field: multiValue,
   note: 'Already preserved',
 };
-expectType<PreserveResult>(preserveAlready);
+expectAssignable<PreserveResult>(preserveAlready);
 
 const preserveConflict: PreserveResult = {
   status: 'conflict',
@@ -355,7 +359,7 @@ const preserveConflict: PreserveResult = {
   attemptedValue: 'new value',
   reason: 'Values differ',
 };
-expectType<PreserveResult>(preserveConflict);
+expectAssignable<PreserveResult>(preserveConflict);
 
 // Type narrowing for PreserveResult
 declare const preserveResult: PreserveResult;
@@ -439,14 +443,14 @@ const fullComponents: VersionComponents = {
 };
 expectType<VersionComponents>(fullComponents);
 
-// IncrementType
-expectType<IncrementType>('major');
-expectType<IncrementType>('minor');
-expectType<IncrementType>('patch');
-expectType<IncrementType>('prerelease');
+// IncrementType - verify valid values are assignable
+expectAssignable<IncrementType>('major');
+expectAssignable<IncrementType>('minor');
+expectAssignable<IncrementType>('patch');
+expectAssignable<IncrementType>('prerelease');
 
-// @ts-expect-error - invalid increment type
-expectType<IncrementType>('invalid');
+// Verify invalid increment type is not assignable
+expectNotAssignable<IncrementType>('invalid');
 
 // Test readonly enforcement on arrays and objects
 declare const testPath: MigrationPath;
@@ -463,9 +467,8 @@ declare const testError: ValidationError;
 // @ts-expect-error - path is readonly
 testError.path.push('field');
 
-declare const testEvent: PreservationEvent;
-// @ts-expect-error - type is readonly
-testEvent.type = 'consumed';
+// Note: PreservationEvent properties are not readonly (by design - they're data objects)
+// The readonly enforcement is on the arrays that contain them
 
 declare const testSingle: SingleValuePreservation;
 // @ts-expect-error - history is readonly

@@ -3,7 +3,7 @@
  */
 
 import type * as ts from 'typescript';
-import type { AnalysisResult, FieldProfile } from '@migrex/core';
+import type { AnalysisResult } from '@migrex/core';
 
 /**
  * Custom diagnostic category for migrex issues.
@@ -231,15 +231,4 @@ function hasKindCheck(node: ts.Node, typescript: typeof ts): boolean {
   }
 
   return found;
-}
-
-/**
- * Get field profile for hover information.
- * @internal Kept for future hover provider integration
- */
-export function _getFieldProfile(
-  fieldName: string,
-  analysis: AnalysisResult
-): FieldProfile | undefined {
-  return analysis.profiles[fieldName];
 }
