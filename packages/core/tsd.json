@@ -5,6 +5,11 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "@migrex/core": ["../src/index.ts"]
+    }
   }
 }

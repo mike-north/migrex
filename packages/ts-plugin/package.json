@@ -19,6 +19,9 @@
     "@migrex/core": "workspace:*",
     "typescript": "^5.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",

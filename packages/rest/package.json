@@ -32,6 +32,9 @@
   "peerDependencies": {
     "@migrex/core": "workspace:*"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",

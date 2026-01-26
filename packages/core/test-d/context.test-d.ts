@@ -1,13 +1,16 @@
 import { expectType, expectAssignable } from 'tsd';
-import { createMigrationContext } from '../src/context.js';
-import type {
-  MigrationContext,
-  PreservedField,
-  PreserveResult,
-  StashSummary,
-  SingleValuePreservation,
-  MultiValuePreservation,
-} from '../src/types.js';
+import {
+  createMigrationContext,
+  type MigrationContext,
+  type PreservedField,
+  type PreserveResult,
+  type StashSummary,
+  type SingleValuePreservation,
+  type MultiValuePreservation,
+  type PreservationEvent,
+  type PreservationMetadata,
+  type PreservedFieldSummary,
+} from '@migrex/core';
 
 const context = createMigrationContext(3);
 
@@ -98,9 +101,7 @@ if (field.kind === 'single') {
   expectType<SingleValuePreservation>(field);
   expectType<string>(field.path);
   expectType<unknown>(field.value);
-  expectType<readonly import('../src/types.js').PreservationEvent[]>(
-    field.history
-  );
+  expectType<readonly PreservationEvent[]>(field.history);
 } else if (field.kind === 'multi') {
   expectType<MultiValuePreservation>(field);
   expectType<string>(field.path);
@@ -108,19 +109,15 @@ if (field.kind === 'single') {
   expectType<
     ReadonlyArray<{
       readonly value: unknown;
-      readonly event: import('../src/types.js').PreservationEvent;
-      readonly metadata?: import('../src/types.js').PreservationMetadata;
+      readonly event: PreservationEvent;
+      readonly metadata?: PreservationMetadata;
     }>
   >(field.entries);
 }
 
 // Verify StashSummary structure
-expectType<
-  readonly import('../src/types.js').PreservedFieldSummary[]
->(summary.consumed);
-expectType<
-  readonly import('../src/types.js').PreservedFieldSummary[]
->(summary.unconsumed);
+expectType<readonly PreservedFieldSummary[]>(summary.consumed);
+expectType<readonly PreservedFieldSummary[]>(summary.unconsumed);
 expectType<boolean>(summary.lossless);
 
 // Verify methods don't accept invalid types

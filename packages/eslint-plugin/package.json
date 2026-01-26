@@ -37,6 +37,9 @@
     "@migrex/core": "workspace:*",
     "eslint": "^9.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup && pnpm run build:types && pnpm run generate:api-report",
     "build:types": "tsc -p tsconfig.build.json",

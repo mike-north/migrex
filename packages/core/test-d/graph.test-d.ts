@@ -1,13 +1,16 @@
 import { expectType, expectError, expectAssignable } from 'tsd';
-import { createMigrationGraph, type MigrationGraph } from '../src/graph.js';
-import { semverStrategy } from '../src/strategies/index.js';
-import type {
-  MigrationPath,
-  MigrationResult,
-  VersionedSchema,
-  ReversibleMigration,
-  OneWayMigration,
-} from '../src/types.js';
+import {
+  createMigrationGraph,
+  semverStrategy,
+  type MigrationGraph,
+  type MigrationPath,
+  type MigrationResult,
+  type MigrationStep,
+  type VersionedSchema,
+  type ReversibleMigration,
+  type OneWayMigration,
+  type AnyMigration,
+} from '@migrex/core';
 
 const graph = createMigrationGraph({
   id: 'test',
@@ -22,9 +25,7 @@ expectType<readonly string[]>(graph.getVersions());
 expectType<MigrationPath>(graph.getPath('1.0.0', '2.0.0'));
 expectType<boolean>(graph.hasPath('1.0.0', '2.0.0'));
 expectType<VersionedSchema<unknown> | undefined>(graph.getSchema('1.0.0'));
-expectType<readonly import('../src/types.js').Migration<unknown, unknown>[]>(
-  graph.getMigrations()
-);
+expectType<readonly AnyMigration<unknown, unknown>[]>(graph.getMigrations());
 
 // Verify migrate return type
 const result = graph.migrate({}, '1.0.0', '2.0.0');
@@ -37,7 +38,7 @@ expectType<MigrationResult<UserV1>>(typedResult);
 
 // Verify result data type matches generic parameter
 if (typedResult.success) {
-  expectType<UserV1>(typedResult.data);
+  expectType<UserV1>(typedResult.data!);
 }
 
 // Verify registration methods are type-safe
@@ -70,25 +71,23 @@ graph.registerMigration(oneWayMigration);
 
 // Verify MigrationPath structure
 const path = graph.getPath('1.0.0', '2.0.0');
-expectType<readonly import('../src/types.js').MigrationStep[]>(path.steps);
+expectType<readonly MigrationStep[]>(path.steps);
 expectType<'up' | 'down' | 'mixed'>(path.direction);
 expectType<boolean>(path.hasIrreversibleStep);
 
 // Verify steps have correct types
 if (path.steps.length > 0) {
-  const step = path.steps[0];
+  const step = path.steps[0]!;
   expectType<string>(step.fromVersion);
   expectType<string>(step.toVersion);
   expectType<'up' | 'down'>(step.direction);
-  expectType<import('../src/types.js').Migration<unknown, unknown>>(
-    step.migration
-  );
+  expectType<AnyMigration<unknown, unknown>>(step.migration);
 }
 
 // Verify MigrationResult discriminated union
 const migrationResult = graph.migrate<V1>({}, '1.0.0', '2.0.0');
 if (migrationResult.success) {
-  expectType<V1>(migrationResult.data);
+  expectType<V1>(migrationResult.data!);
   // Error should not exist on success
   expectType<Error | undefined>(migrationResult.error);
 } else {
