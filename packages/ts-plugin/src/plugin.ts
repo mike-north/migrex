@@ -50,8 +50,8 @@ export function createProxiedLanguageService(
   const project = info.project;
 
   // Initialize graph loader and analysis cache
-  const _graphLoader = new GraphLoader();
-  const _analysisCache = new AnalysisCache();
+  const graphLoader = new GraphLoader();
+  const analysisCache = new AnalysisCache();
 
   // Get project root directory
   const projectRoot = project.getCurrentDirectory();
@@ -92,9 +92,7 @@ export function createProxiedLanguageService(
       }
 
       // Load graph and analysis
-      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
       const analysisResult = loadAnalysis();
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!analysisResult) {
         return baseDiagnostics;
       }
@@ -139,9 +137,7 @@ export function createProxiedLanguageService(
       }
 
       // Load graph and analysis
-      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
       const analysisResult = loadAnalysis();
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!analysisResult) {
         return baseInfo;
       }
@@ -231,23 +227,26 @@ export function createProxiedLanguageService(
       return undefined;
     }
 
-    // Load graph synchronously (plugins must be sync)
-    // Note: GraphLoader.load is async, so we need a sync wrapper
-    // For now, we'll skip the async load and return undefined
-    // A real implementation would need to handle this differently
+    // Load graph synchronously (GraphLoader uses require() which is sync)
+    const loadResult = graphLoader.load(config.graphPath, projectRoot);
 
-    // Get current file version for cache validation (stub for future use)
-     
-    const _getCurrentFileVersion = (fileName: string) => {
+    if (!loadResult.success) {
+      // Log error if available
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (logger) {
+        logger.info(`[migrex] ${loadResult.error}`);
+      }
+      return undefined;
+    }
+
+    // Get current file version for cache validation
+    const getCurrentFileVersion = (fileName: string) => {
       const scriptInfo = project.getScriptInfo(fileName);
       return scriptInfo?.getLatestVersion();
     };
 
-    // For this implementation, we'll assume the graph is loaded
-    // and cached. A full implementation would need better async handling.
-
-    // Return undefined for now - this would need proper async/sync bridging
-    return undefined;
+    // Get analysis result (cached or freshly computed)
+    return analysisCache.get(loadResult.graph, getCurrentFileVersion);
   }
 
   return proxy;
