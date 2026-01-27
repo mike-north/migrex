@@ -1,7 +1,7 @@
 {
   "name": "@migrex/zod",
   "description": "Zod schema plugin for migrex",
-  "version": "1.0.0-alpha.0",
+  "version": "1.0.0-alpha.1",
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
     "@migrex/core": "workspace:*",
