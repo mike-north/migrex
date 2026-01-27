@@ -12,8 +12,10 @@ Zod schema integration for migrex - use Zod schemas as versioned schemas in your
 ## Installation
 
 ```bash
-npm install @migrex/zod @migrex/core zod
+npm install @migrex/zod @migrex/core zod@^3.24.0
 ```
+
+> **Note**: @migrex/zod requires Zod v3.x. Zod v4.x is not yet supported due to breaking API changes.
 
 ## Usage
 

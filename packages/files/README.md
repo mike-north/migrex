@@ -41,6 +41,12 @@ console.log(result.wasUpgraded); // true if migration occurred
 const result2 = await loadVersionedFile(graph, './data.json', {
   targetVersion: '2.0.0',
 });
+
+// Load WITHOUT migrating (keep original version)
+// Specify targetVersion matching the file's current version
+const result3 = await loadVersionedFile(graph, './data.json', {
+  targetVersion: '1.0.0', // Must match the version in the file
+});
 ```
 
 ### Save Versioned File
@@ -118,6 +124,8 @@ console.log('Modified fields:', diff.modifiedFields);
 ### `loadVersionedFile<T>(graph, filePath, options?)`
 
 Load and auto-migrate a versioned file.
+
+> **Note**: By default, `loadVersionedFile` automatically migrates to the latest registered version. To load without migration, specify `targetVersion` matching the file's current version.
 
 **Parameters:**
 - `graph: MigrationGraph` - Migration graph with schemas and migrations

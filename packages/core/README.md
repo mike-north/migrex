@@ -159,8 +159,8 @@ const migrationV1ToV2: ReversibleMigration<V1, V2> = {
   up: (data: V1, ctx: MigrationContext) => {
     // Preserve theme for later restoration
     ctx.preserve('theme', data.theme, {
-      requiredForVersion: '3.0.0',
-      reason: 'Theme preference reintroduced in v3',
+      sourceVersion: '1.0.0',
+      description: 'Theme preference reintroduced in v3',
     });
 
     return {
@@ -194,8 +194,8 @@ const migrationV2ToV3: ReversibleMigration<V2, V3> = {
   down: (data: V3, ctx: MigrationContext) => {
     // Preserve theme when migrating back through v2
     ctx.preserve('theme', data.theme, {
-      requiredForVersion: '1.0.0',
-      reason: 'Theme exists in v1',
+      sourceVersion: '3.0.0',
+      description: 'Theme exists in v1',
     });
 
     return {
@@ -229,6 +229,29 @@ if (result.success) {
 
   console.log(result.stash.lossless);
   // true - no data was lost during migration
+}
+```
+
+### Round-Trip Migrations
+
+When chaining multiple migrations (e.g., forward then backward), pass the stash from the first migration to the second using `initialStash`:
+
+```typescript
+// Migrate v1 -> v3 (forward)
+const v1Data: V1 = { version: '1.0.0', name: 'Alice', theme: 'dark' };
+const forwardResult = graph.migrate(v1Data, '1.0.0', '3.0.0');
+
+if (forwardResult.success) {
+  // Now migrate v3 -> v1 (backward), passing the stash
+  const backwardResult = graph.migrate(forwardResult.data, '3.0.0', '1.0.0', {
+    initialStash: forwardResult.preservedFields,
+  });
+
+  if (backwardResult.success) {
+    console.log(backwardResult.data);
+    // { version: '1.0.0', name: 'Alice', theme: 'dark' }
+    // Theme was preserved through the round-trip!
+  }
 }
 ```
 
@@ -329,11 +352,81 @@ const graph = createMigrationGraph({
 
 ### Core Types
 
+#### `MigrationResult<T>`
+Result returned by `graph.migrate()`:
+```typescript
+interface MigrationResult<T> {
+  success: boolean;              // Whether migration succeeded
+  data?: T;                      // Migrated data (if success)
+  error?: Error;                 // Error (if !success)
+  path: MigrationPath;           // The path that was executed
+  stash: StashSummary;           // Summary of preserved fields
+  preservedFields: PreservedField[]; // Raw stash for chaining migrations
+}
+```
+
+#### `MigrationPath`
+The path between two versions:
+```typescript
+interface MigrationPath {
+  steps: MigrationStep[];        // Individual migration steps
+  direction: 'up' | 'down' | 'mixed';
+  hasIrreversibleStep: boolean;
+}
+```
+
+#### `MigrationStep`
+A single step in the migration path:
+```typescript
+interface MigrationStep {
+  fromVersion: string;           // Source version
+  toVersion: string;             // Target version
+  direction: 'up' | 'down';
+  migration: AnyMigration;
+}
+```
+
+#### `PreservationMetadata`
+Metadata for `ctx.preserve()`:
+```typescript
+interface PreservationMetadata {
+  sourceVersion?: string;        // Version where field originated
+  description?: string;          // Human-readable description
+  fieldSchema?: FieldSchema;     // Optional validation schema
+}
+```
+
+#### `MigrateOptions`
+Options for `graph.migrate()`:
+```typescript
+interface MigrateOptions {
+  skipValidation?: boolean;      // Skip final validation (default: false)
+  validateIntermediate?: boolean; // Validate each step (default: false)
+  initialStash?: PreservedField[]; // Pass stash from previous migration
+}
+```
+
+#### `StashSummary`
+Summary of field preservation across a migration:
+```typescript
+interface StashSummary {
+  consumed: PreservedFieldSummary[];   // Fields that were preserved and later consumed
+  unconsumed: PreservedFieldSummary[]; // Fields that were preserved but never consumed
+  lossless: boolean;                   // True if all preserved fields were consumed
+}
+
+interface PreservedFieldSummary {
+  path: string;           // Field path that was preserved
+  preservedAt: string;    // Version where field was first preserved
+  consumedAt?: string;    // Version where field was consumed (if it was)
+}
+```
+
+#### Other Types
 - `VersionedSchema<T>` - Schema definition for a version
 - `ReversibleMigration<From, To>` - Bidirectional migration
 - `OneWayMigration<From, To>` - Irreversible migration
-- `MigrationContext` - Context for field preservation
-- `MigrationResult<T>` - Result of executing migrations
+- `MigrationContext` - Context for field preservation (`preserve`, `consume`, `hasPreserved`)
 - `AnalysisResult` - Graph analysis results
 
 ### Core Functions
