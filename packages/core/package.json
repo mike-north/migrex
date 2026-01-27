@@ -1,7 +1,7 @@
 {
   "name": "@migrex/core",
   "description": "Core library for versioned data contracts with bidirectional migrations",
-  "version": "0.2.0-alpha.0",
+  "version": "0.2.0-alpha.1",
   "dependencies": {
     "fast-deep-equal": "^3.1.3"
   },

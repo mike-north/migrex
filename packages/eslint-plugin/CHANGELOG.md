@@ -1,5 +1,12 @@
 # @migrex/eslint-plugin
 
+## 1.0.0-alpha.2
+
+### Patch Changes
+
+- Updated dependencies [[`faf5420`](https://github.com/mike-north/migrex/commit/faf54202d312312650e403687c4a4279d03872e8), [`faf5420`](https://github.com/mike-north/migrex/commit/faf54202d312312650e403687c4a4279d03872e8)]:
+  - @migrex/core@0.2.0-alpha.1
+
 ## 0.2.0-alpha.1
 
 ### Patch Changes
