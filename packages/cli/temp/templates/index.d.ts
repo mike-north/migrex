@@ -35,7 +35,7 @@ export interface Template {
     /** Human-readable description */
     description: string;
     /** Generate files based on options */
-    generate(options: TemplateOptions): Promise<GeneratedFile[]>;
+    generate(options: TemplateOptions): Promise<GeneratedFile[]> | GeneratedFile[];
 }
 export { configTemplate } from './config-template.js';
 export { restApiTemplate } from './rest-api-template.js';

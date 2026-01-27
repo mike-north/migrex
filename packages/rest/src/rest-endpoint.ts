@@ -83,6 +83,7 @@ export interface VersionedRESTEndpoint {
    * @returns Object containing the client's version and migrated request body
    * @throws {Error} If version cannot be determined or migration fails
    */
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T lets callers specify expected return type
   parseRequest<T>(
     req: { body: unknown; headers?: Record<string, string> },
     internalVersion: string
@@ -199,7 +200,7 @@ export function createVersionedRESTEndpoint(
   });
 
   // Register schemas for each version
-  for (const [version, schemas] of Object.entries(versions)) {
+  for (const [_version, schemas] of Object.entries(versions)) {
     requestGraph.registerSchema(schemas.request);
     responseGraph.registerSchema(schemas.response);
   }
@@ -224,6 +225,7 @@ export function createVersionedRESTEndpoint(
   }
 
   return {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T lets callers specify expected return type
     parseRequest<T>(
       req: { body: unknown; headers?: Record<string, string> },
       internalVersion: string

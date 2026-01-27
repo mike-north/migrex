@@ -38,7 +38,7 @@ export interface Template {
   /** Human-readable description */
   description: string;
   /** Generate files based on options */
-  generate(options: TemplateOptions): Promise<GeneratedFile[]>;
+  generate(options: TemplateOptions): Promise<GeneratedFile[]> | GeneratedFile[];
 }
 
 // Re-export templates

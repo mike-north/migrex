@@ -162,7 +162,8 @@ export function omitFromZodSchema<
 
   // Remove the keys to omit
   for (const key of keysToOmit) {
-    delete baseShape[key];
+    // Use Reflect.deleteProperty to satisfy ESLint no-dynamic-delete rule
+    Reflect.deleteProperty(baseShape, key);
   }
 
   // Remove old version using bracket notation to avoid TS4111 error

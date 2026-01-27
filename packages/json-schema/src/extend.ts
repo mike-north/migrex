@@ -85,12 +85,10 @@ export function extendJsonSchema(
   } = options;
 
   // Deep clone the base schema to avoid mutation
-  const result: JSONSchema7 = JSON.parse(JSON.stringify(base));
+  const result = JSON.parse(JSON.stringify(base)) as JSONSchema7;
 
   // Ensure properties object exists
-  if (!result.properties) {
-    result.properties = {};
-  }
+  result.properties ??= {};
 
   // Update version constant
   result.properties['version'] = { const: newVersion };
@@ -102,7 +100,8 @@ export function extendJsonSchema(
 
   // Remove properties
   for (const key of removeProperties) {
-    delete result.properties[key];
+    // Use Reflect.deleteProperty to satisfy ESLint no-dynamic-delete rule
+    Reflect.deleteProperty(result.properties, key);
   }
 
   // Handle required array

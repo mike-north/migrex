@@ -195,7 +195,7 @@ configGraph.registerMigration(migrationV1ToV1_1);
  * Generate index file with usage example.
  */
 function generateIndexFile(options: TemplateOptions): string {
-  const { projectName, plugin } = options;
+  const { plugin } = options;
 
   if (plugin === 'zod') {
     return `import { configGraph } from './graph.js';
@@ -335,7 +335,7 @@ export const configTemplate: Template = {
   name: 'config',
   description: 'Versioned configuration file with migration example',
 
-  async generate(options: TemplateOptions): Promise<GeneratedFile[]> {
+  generate(options: TemplateOptions): GeneratedFile[] {
     return [
       {
         path: 'src/config/schemas.ts',

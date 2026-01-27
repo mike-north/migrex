@@ -478,7 +478,7 @@ export const restApiTemplate: Template = {
   name: 'rest-api',
   description: 'Versioned REST API endpoint with request/response migrations',
 
-  async generate(options: TemplateOptions): Promise<GeneratedFile[]> {
+  generate(options: TemplateOptions): GeneratedFile[] {
     return [
       {
         path: 'src/api/schemas/user-request.ts',
