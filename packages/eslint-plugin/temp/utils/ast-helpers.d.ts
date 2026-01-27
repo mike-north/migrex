@@ -26,8 +26,9 @@ export declare function isPropertyAccess(node: TSESTree.Node, objectName: string
 export declare function hasKindCheck(node: TSESTree.Node, fieldName: string): boolean;
 /**
  * Find the enclosing function or block for a given node.
+ * @internal Kept for potential future use in rules
  */
-export declare function getEnclosingFunction(node: TSESTree.Node): TSESTree.FunctionLike | undefined;
+export declare function _getEnclosingFunction(node: TSESTree.Node): TSESTree.FunctionLike | undefined;
 /**
  * Check if a node is within a conditional that checks field.kind.
  */
@@ -44,3 +45,4 @@ export declare function getPreserveFieldName(node: TSESTree.CallExpression): str
  * Check if a ctx.preserve() call has a third argument (metadata).
  */
 export declare function hasPreserveMetadata(node: TSESTree.CallExpression): boolean;
+//# sourceMappingURL=ast-helpers.d.ts.map

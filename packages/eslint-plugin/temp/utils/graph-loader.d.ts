@@ -15,8 +15,9 @@ export declare function getFieldProfile(analysis: AnalysisResult, fieldName: str
 /**
  * Clear the analysis cache.
  * Should be called when the graph changes.
+ * @internal Kept for testing and manual cache invalidation
  */
-export declare function clearAnalysisCache(): void;
+export declare function _clearAnalysisCache(): void;
 /**
  * Find lossy paths in the graph.
  */
@@ -29,3 +30,4 @@ export { suggestMigrations };
  * Get deprecated versions used in the graph.
  */
 export { getDeprecatedVersions };
+//# sourceMappingURL=graph-loader.d.ts.map

@@ -331,3 +331,10 @@ export function createFieldSchema(
  * Use this to access the underlying Ajv instance or for advanced usage.
  */
 export const jsonSchemaPlugin = defaultPlugin;
+
+// Export schema extension utilities
+export {
+  extendJsonSchema,
+  omitFromJsonSchema,
+  type ExtendJsonSchemaOptions,
+} from './extend.js';

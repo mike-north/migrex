@@ -7,11 +7,18 @@
 import type { FieldSchema } from '@migrex/core';
 import type { ValidationResult } from '@migrex/core';
 import type { VersionedSchema } from '@migrex/core';
-import type { z } from 'zod';
+import { z } from 'zod';
+import { ZodObject } from 'zod';
+import { ZodRawShape } from 'zod';
 import type { ZodType } from 'zod';
 
 // @public
 export function createFieldSchema<T>(zodSchema: ZodType<T>, options?: FieldSchemaOptions): FieldSchema;
+
+// @public
+export function extendZodSchema<TBase extends ZodRawShape, TExtensions extends ZodRawShape, TVersion extends string>(base: ZodObject<TBase>, newVersion: TVersion, extensions: TExtensions): ZodObject<Omit<TBase, 'version'> & TExtensions & {
+    version: z.ZodLiteral<TVersion>;
+}>;
 
 // @public
 export interface FieldSchemaOptions {
@@ -35,5 +42,10 @@ export interface FromZodOptions<T> {
 
 // @public
 export type InferZodSchema<T extends ZodType> = z.infer<T>;
+
+// @public
+export function omitFromZodSchema<TBase extends ZodRawShape, TKeys extends Exclude<keyof TBase, 'version'>, TVersion extends string>(base: ZodObject<TBase>, newVersion: TVersion, keysToOmit: TKeys[]): ZodObject<Omit<TBase, TKeys | 'version'> & {
+    version: z.ZodLiteral<TVersion>;
+}>;
 
 ```

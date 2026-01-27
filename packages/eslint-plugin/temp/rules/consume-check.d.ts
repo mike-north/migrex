@@ -26,3 +26,4 @@ export interface ConsumeCheckRuleOptions {
 }
 export declare const consumeCheck: ESLintUtils.RuleModule<MessageIds, [ConsumeCheckRuleOptions?], unknown, ESLintUtils.RuleListener>;
 export {};
+//# sourceMappingURL=consume-check.d.ts.map

@@ -8,6 +8,15 @@
 
 import type { MigrationGraph, MigrationStep, MigrationPath } from '@migrex/core';
 
+// Export REST endpoint builder
+export {
+  createVersionedRESTEndpoint,
+  type RESTEndpointVersion,
+  type RESTEndpointMigration,
+  type RESTEndpointOptions,
+  type VersionedRESTEndpoint,
+} from './rest-endpoint.js';
+
 /**
  * Check if a migration path contains any lossy steps.
  *

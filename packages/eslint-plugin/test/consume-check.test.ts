@@ -6,7 +6,7 @@ import { RuleTester } from '@typescript-eslint/rule-tester';
 import { afterAll, describe, it } from 'vitest';
 import { consumeCheck } from '../src/rules/consume-check.js';
 import type { MigrationGraph, FieldProfile } from '@migrex/core';
-import { createMigrationGraph } from '@migrex/core';
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
 
 // Set up the test framework for RuleTester
 RuleTester.afterAll = afterAll;
@@ -20,6 +20,8 @@ function createMockGraph(
 ): MigrationGraph {
   // Create a simple graph with two versions
   const graph = createMigrationGraph({
+    id: 'test-graph',
+    versionStrategy: semverStrategy,
     schemas: [
       {
         version: '1.0.0',

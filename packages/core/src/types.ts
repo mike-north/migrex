@@ -689,4 +689,16 @@ export interface MigrationGraphOptions {
    * Optional telemetry hooks for observability.
    */
   telemetry?: MigrationTelemetry;
+
+  /**
+   * Optional array of schemas to register at creation time.
+   * This allows declarative configuration instead of calling registerSchema multiple times.
+   */
+  schemas?: readonly VersionedSchema<unknown>[];
+
+  /**
+   * Optional array of migrations to register at creation time.
+   * This allows declarative configuration instead of calling registerMigration multiple times.
+   */
+  migrations?: readonly AnyMigration<unknown, unknown>[];
 }

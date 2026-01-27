@@ -5,6 +5,8 @@
 ```ts
 
 import type { MigrationGraph } from '@migrex/core';
+import type { VersionedSchema } from '@migrex/core';
+import type { VersionStrategy } from '@migrex/core';
 
 // @public
 export function createVersionedEndpoint(graph: MigrationGraph, options: VersionedEndpointOptions): {
@@ -18,6 +20,9 @@ export function createVersionedEndpoint(graph: MigrationGraph, options: Versione
 
 // @public
 export function createVersionedMiddleware(graph: MigrationGraph, options: VersionedMiddlewareOptions): MiddlewareFunction;
+
+// @public
+export function createVersionedRESTEndpoint(options: RESTEndpointOptions): VersionedRESTEndpoint;
 
 // @public
 export function extractVersionFromHeader(headerName: string): VersionExtractor;
@@ -52,6 +57,36 @@ interface Response_2 {
 export { Response_2 as Response }
 
 // @public
+export interface RESTEndpointMigration {
+    fromVersion: string;
+    request: {
+        up: (data: unknown) => unknown;
+        down: (data: unknown) => unknown;
+    };
+    response: {
+        up: (data: unknown) => unknown;
+        down: (data: unknown) => unknown;
+    };
+    toVersion: string;
+}
+
+// @public
+export interface RESTEndpointOptions {
+    defaultVersion?: string;
+    extractVersion: VersionExtractor;
+    id: string;
+    migrations: RESTEndpointMigration[];
+    versions: Record<string, RESTEndpointVersion<unknown, unknown>>;
+    versionStrategy: VersionStrategy;
+}
+
+// @public
+export interface RESTEndpointVersion<TReq, TRes> {
+    request: VersionedSchema<TReq>;
+    response: VersionedSchema<TRes>;
+}
+
+// @public
 export interface VersionedEndpointOptions {
     defaultVersion?: string;
     deprecationHeader?: string;
@@ -66,6 +101,20 @@ export interface VersionedMiddlewareOptions {
     extractVersion: VersionExtractor;
     targetVersion?: string;
     warnOnLossy?: boolean;
+}
+
+// @public
+export interface VersionedRESTEndpoint {
+    formatResponse<T>(data: T, clientVersion: string, internalVersion: string): T;
+    getRequestGraph(): MigrationGraph;
+    getResponseGraph(): MigrationGraph;
+    parseRequest<T>(req: {
+        body: unknown;
+        headers?: Record<string, string>;
+    }, internalVersion: string): {
+        version: string;
+        body: T;
+    };
 }
 
 // @public

@@ -12,8 +12,10 @@ Zod schema integration for migrex - use Zod schemas as versioned schemas in your
 ## Installation
 
 ```bash
-npm install @migrex/zod @migrex/core zod
+npm install @migrex/zod @migrex/core zod@^3.24.0
 ```
+
+> **Note**: @migrex/zod requires Zod v3.x. Zod v4.x is not yet supported due to breaking API changes.
 
 ## Usage
 
@@ -124,6 +126,64 @@ const schemaV1 = fromZod('1.0.0', UserV1Schema, {
     message: 'Please upgrade to v2.0.0 for improved name handling',
   },
   releaseDate: '2024-01-01',
+});
+```
+
+### Schema Extension
+
+The `extendZodSchema` and `omitFromZodSchema` utilities help reduce duplication when creating multiple schema versions:
+
+#### extendZodSchema
+
+Extend a base schema with new fields while updating the version literal:
+
+```typescript
+import { z } from 'zod';
+import { extendZodSchema, fromZod } from '@migrex/zod';
+
+const ConfigV1 = z.object({
+  version: z.literal('1.0.0'),
+  name: z.string(),
+  port: z.number(),
+});
+
+// Extend to v1.1.0 with new logLevel field
+const ConfigV1_1 = extendZodSchema(ConfigV1, '1.1.0', {
+  logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+});
+// ConfigV1_1 now has: version: '1.1.0', name, port, logLevel
+
+const schemaV1 = fromZod('1.0.0', ConfigV1);
+const schemaV1_1 = fromZod('1.1.0', ConfigV1_1);
+```
+
+#### omitFromZodSchema
+
+Remove deprecated fields when creating new schema versions:
+
+```typescript
+import { omitFromZodSchema, fromZod } from '@migrex/zod';
+
+const V1 = z.object({
+  version: z.literal('1.0.0'),
+  name: z.string(),
+  deprecatedField: z.string(),
+});
+
+const V2 = omitFromZodSchema(V1, '2.0.0', ['deprecatedField']);
+// V2 has: version: '2.0.0', name (deprecatedField removed)
+
+const schemaV2 = fromZod('2.0.0', V2);
+```
+
+#### Combining omit and extend
+
+```typescript
+// Remove old field and add new ones
+const V2WithoutOld = omitFromZodSchema(V1, '2.0.0', ['oldName']);
+const V2 = extendZodSchema(V2WithoutOld, '2.0.0', {
+  firstName: z.string(),
+  lastName: z.string(),
 });
 ```
 

@@ -91,6 +91,150 @@ app.post('/users', async (req, res) => {
 });
 ```
 
+### Unified REST Endpoint Builder
+
+For simpler cases where you want to configure both request and response migrations together, use `createVersionedRESTEndpoint`:
+
+```typescript
+import { createVersionedRESTEndpoint, extractVersionFromHeader } from '@migrex/rest';
+import { fromZod } from '@migrex/zod';
+import { semverStrategy } from '@migrex/core';
+
+const endpoint = createVersionedRESTEndpoint({
+  id: 'users',
+  versionStrategy: semverStrategy,
+  extractVersion: extractVersionFromHeader('X-API-Version'),
+  defaultVersion: '1.0.0',
+  versions: {
+    '1.0.0': {
+      request: fromZod('1.0.0', UserRequestV1),
+      response: fromZod('1.0.0', UserResponseV1),
+    },
+    '2.0.0': {
+      request: fromZod('2.0.0', UserRequestV2),
+      response: fromZod('2.0.0', UserResponseV2),
+    },
+  },
+  migrations: [
+    {
+      fromVersion: '1.0.0',
+      toVersion: '2.0.0',
+      request: {
+        up: (data) => ({ firstName: data.name.split(' ')[0], lastName: data.name.split(' ').slice(1).join(' ') }),
+        down: (data) => ({ name: `${data.firstName} ${data.lastName}`.trim() }),
+      },
+      response: {
+        up: (data) => ({ ...data, firstName: data.name.split(' ')[0], lastName: data.name.split(' ').slice(1).join(' ') }),
+        down: (data) => ({ id: data.id, name: `${data.firstName} ${data.lastName}`.trim(), createdAt: data.createdAt }),
+      },
+    },
+  ],
+});
+
+// In your endpoint handler
+app.post('/users', async (req, res) => {
+  // Parse request to internal version (2.0.0)
+  const { version, body } = endpoint.parseRequest(req, '2.0.0');
+
+  // Process with v2 logic
+  const user = { id: generateId(), ...body, createdAt: new Date().toISOString() };
+
+  // Format response back to client's version
+  const responseData = endpoint.formatResponse(user, version, '2.0.0');
+  res.json(responseData);
+});
+```
+
+This approach creates two internal migration graphs (one for requests, one for responses) but exposes a unified API for configuration.
+
+### Request vs Response Schemas
+
+REST APIs typically have different schemas for requests and responses. For example, a POST request might have `{ name: string }` but the response includes server-generated fields like `{ id: string, name: string, createdAt: string }`.
+
+**Important**: When request and response schemas differ, you need **separate migration graphs** for each:
+
+```typescript
+import { z } from 'zod';
+import { fromZod } from '@migrex/zod';
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
+import { createVersionedEndpoint, extractVersionFromHeader } from '@migrex/rest';
+
+// REQUEST schemas (what clients send)
+const UserRequestV1 = z.object({ name: z.string() });
+const UserRequestV2 = z.object({ firstName: z.string(), lastName: z.string() });
+
+// RESPONSE schemas (what we return - includes server fields)
+const UserResponseV1 = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+});
+const UserResponseV2 = z.object({
+  id: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  createdAt: z.string(),
+});
+
+// Request migration graph
+const requestGraph = createMigrationGraph({ id: 'user-request', versionStrategy: semverStrategy });
+requestGraph.registerSchema(fromZod('1.0.0', UserRequestV1));
+requestGraph.registerSchema(fromZod('2.0.0', UserRequestV2));
+requestGraph.registerMigration({
+  fromVersion: '1.0.0',
+  toVersion: '2.0.0',
+  up: (data) => {
+    const [firstName, ...rest] = data.name.split(' ');
+    return { firstName: firstName || '', lastName: rest.join(' ') || '' };
+  },
+  down: (data) => ({ name: `${data.firstName} ${data.lastName}`.trim() }),
+});
+
+// Response migration graph (separate!)
+const responseGraph = createMigrationGraph({ id: 'user-response', versionStrategy: semverStrategy });
+responseGraph.registerSchema(fromZod('1.0.0', UserResponseV1));
+responseGraph.registerSchema(fromZod('2.0.0', UserResponseV2));
+responseGraph.registerMigration({
+  fromVersion: '1.0.0',
+  toVersion: '2.0.0',
+  up: (data) => {
+    const [firstName, ...rest] = data.name.split(' ');
+    return { id: data.id, firstName: firstName || '', lastName: rest.join(' ') || '', createdAt: data.createdAt };
+  },
+  down: (data) => ({ id: data.id, name: `${data.firstName} ${data.lastName}`.trim(), createdAt: data.createdAt }),
+});
+
+// Create separate endpoints
+const requestEndpoint = createVersionedEndpoint(requestGraph, {
+  extractVersion: extractVersionFromHeader('X-API-Version'),
+  defaultVersion: '1.0.0',
+});
+
+const responseEndpoint = createVersionedEndpoint(responseGraph, {
+  extractVersion: extractVersionFromHeader('X-API-Version'),
+  defaultVersion: '1.0.0',
+});
+
+// Handler uses both endpoints
+app.post('/users', async (req, res) => {
+  // Parse request with request graph
+  const { version, body } = requestEndpoint.parseRequest(req, '2.0.0');
+
+  // Business logic (always v2.0.0)
+  const user = {
+    id: generateId(),
+    firstName: body.firstName,
+    lastName: body.lastName,
+    createdAt: new Date().toISOString(),
+  };
+
+  // Send response with response graph
+  responseEndpoint.sendResponse(res, user, version, '2.0.0');
+});
+```
+
+> **Why separate graphs?** If you use a single graph, response fields like `id` and `createdAt` will be stripped during migration because they're not in the request schema. Separate graphs ensure each migration only transforms the fields relevant to that direction.
+
 ### Deprecation Headers
 
 When a client requests a deprecated version, the middleware automatically sets:

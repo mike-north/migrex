@@ -5,6 +5,17 @@
 ```ts
 
 // @public
+export function addField<TFrom extends object, TTo extends object, K extends keyof TTo>(options: AddFieldOptions<TFrom, TTo, K>): ReversibleMigration<TFrom, TTo>;
+
+// @public
+export interface AddFieldOptions<_TFrom extends object, TTo extends object, K extends keyof TTo> {
+    defaultValue: TTo[K];
+    field: K;
+    from: string;
+    to: string;
+}
+
+// @public
 export interface AnalysisOptions {
     maxPathLength?: number;
     skipDeprecated?: boolean;
@@ -242,6 +253,8 @@ export interface MigrationGraph {
 // @public
 export interface MigrationGraphOptions {
     id: string;
+    migrations?: readonly AnyMigration<unknown, unknown>[];
+    schemas?: readonly VersionedSchema<unknown>[];
     telemetry?: MigrationTelemetry;
     versionStrategy: VersionStrategy;
 }
@@ -384,6 +397,38 @@ export type PreserveResult = {
     attemptedValue: unknown;
     reason: string;
 };
+
+// @public
+export function removeField<TFrom extends object, TTo extends object, K extends keyof TFrom>(options: RemoveFieldOptions<TFrom, TTo, K>): ReversibleMigration<TFrom, TTo>;
+
+// @public
+export interface RemoveFieldOptions<TFrom extends object, _TTo extends object, K extends keyof TFrom> {
+    field: K;
+    from: string;
+    preserveAs?: string;
+    to: string;
+}
+
+// @public
+export function renameField<TFrom extends object, TTo extends object>(options: RenameFieldOptions<TFrom, TTo>): ReversibleMigration<TFrom, TTo>;
+
+// @public
+export interface RenameFieldOptions<TFrom extends object, TTo extends object> {
+    from: string;
+    newName: keyof TTo;
+    oldName: keyof TFrom;
+    to: string;
+}
+
+// @public
+export function restructure<TFrom extends object, TTo extends object>(options: RestructureOptions): ReversibleMigration<TFrom, TTo>;
+
+// @public
+export interface RestructureOptions {
+    from: string;
+    to: string;
+    transform: Record<string, string>;
+}
 
 // @public
 export interface ReversibleMigration<From, To> {

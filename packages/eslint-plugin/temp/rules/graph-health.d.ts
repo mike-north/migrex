@@ -32,3 +32,4 @@ export interface GraphHealthRuleOptions {
 }
 export declare const graphHealth: ESLintUtils.RuleModule<MessageIds, [GraphHealthRuleOptions?], unknown, ESLintUtils.RuleListener>;
 export {};
+//# sourceMappingURL=graph-health.d.ts.map

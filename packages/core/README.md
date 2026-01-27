@@ -144,6 +144,130 @@ if (reverseResult.success) {
 }
 ```
 
+## Declarative Graph Configuration
+
+You can register schemas and migrations during graph creation for a more declarative style:
+
+```typescript
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
+
+const graph = createMigrationGraph({
+  id: 'user-graph',
+  versionStrategy: semverStrategy,
+  schemas: [schemaV1, schemaV2, schemaV3],
+  migrations: [migrationV1ToV2, migrationV2ToV3],
+});
+
+// No need to call registerSchema() or registerMigration()!
+```
+
+This is equivalent to calling `registerSchema()` and `registerMigration()` for each item. You can also mix declarative and imperative registration:
+
+```typescript
+const graph = createMigrationGraph({
+  id: 'user-graph',
+  versionStrategy: semverStrategy,
+  schemas: [schemaV1, schemaV2],
+});
+
+// Add more later
+graph.registerSchema(schemaV3);
+graph.registerMigration(migrationV2ToV3);
+```
+
+## Migration Helpers
+
+For common migration patterns, use the built-in helper functions instead of writing custom migrations:
+
+### addField
+
+Add a field with a default value:
+
+```typescript
+import { addField } from '@migrex/core';
+
+interface V1 { version: string; name: string; }
+interface V2 { version: string; name: string; logLevel: string; }
+
+const migration = addField<V1, V2, 'logLevel'>({
+  from: '1.0.0',
+  to: '1.1.0',
+  field: 'logLevel',
+  defaultValue: 'info',
+});
+
+graph.registerMigration(migration);
+```
+
+### removeField
+
+Remove a field, optionally preserving it for later restoration:
+
+```typescript
+import { removeField } from '@migrex/core';
+
+interface V1 { version: string; name: string; deprecated: string; }
+interface V2 { version: string; name: string; }
+
+// Simple removal (lossy)
+const migration = removeField<V1, V2, 'deprecated'>({
+  from: '1.0.0',
+  to: '1.1.0',
+  field: 'deprecated',
+});
+
+// With preservation (lossless)
+const preservingMigration = removeField<V1, V2, 'deprecated'>({
+  from: '1.0.0',
+  to: '1.1.0',
+  field: 'deprecated',
+  preserveAs: 'old.deprecated', // Stored in the stash
+});
+```
+
+### renameField
+
+Rename a field while preserving its value:
+
+```typescript
+import { renameField } from '@migrex/core';
+
+interface V1 { version: string; user_name: string; }
+interface V2 { version: string; userName: string; }
+
+const migration = renameField<V1, V2>({
+  from: '1.0.0',
+  to: '2.0.0',
+  oldName: 'user_name',
+  newName: 'userName',
+});
+```
+
+### restructure
+
+Transform between flat and nested structures:
+
+```typescript
+import { restructure } from '@migrex/core';
+
+interface V1 { version: string; appName: string; port: number; }
+interface V2 { version: string; app: { name: string }; server: { port: number }; }
+
+const migration = restructure<V1, V2>({
+  from: '1.0.0',
+  to: '2.0.0',
+  transform: {
+    'app.name': 'appName',
+    'server.port': 'port',
+  },
+});
+```
+
+The `transform` object maps nested paths (in v2) to flat field names (in v1). This helper:
+- Automatically handles both `up` (flat → nested) and `down` (nested → flat) migrations
+- Sets appropriate traits to indicate the structural transformation
+- Is fully reversible
+
 ## Field Preservation
 
 When a field is removed in one version but needed later, you can preserve it:
@@ -159,8 +283,8 @@ const migrationV1ToV2: ReversibleMigration<V1, V2> = {
   up: (data: V1, ctx: MigrationContext) => {
     // Preserve theme for later restoration
     ctx.preserve('theme', data.theme, {
-      requiredForVersion: '3.0.0',
-      reason: 'Theme preference reintroduced in v3',
+      sourceVersion: '1.0.0',
+      description: 'Theme preference reintroduced in v3',
     });
 
     return {
@@ -194,8 +318,8 @@ const migrationV2ToV3: ReversibleMigration<V2, V3> = {
   down: (data: V3, ctx: MigrationContext) => {
     // Preserve theme when migrating back through v2
     ctx.preserve('theme', data.theme, {
-      requiredForVersion: '1.0.0',
-      reason: 'Theme exists in v1',
+      sourceVersion: '3.0.0',
+      description: 'Theme exists in v1',
     });
 
     return {
@@ -229,6 +353,29 @@ if (result.success) {
 
   console.log(result.stash.lossless);
   // true - no data was lost during migration
+}
+```
+
+### Round-Trip Migrations
+
+When chaining multiple migrations (e.g., forward then backward), pass the stash from the first migration to the second using `initialStash`:
+
+```typescript
+// Migrate v1 -> v3 (forward)
+const v1Data: V1 = { version: '1.0.0', name: 'Alice', theme: 'dark' };
+const forwardResult = graph.migrate(v1Data, '1.0.0', '3.0.0');
+
+if (forwardResult.success) {
+  // Now migrate v3 -> v1 (backward), passing the stash
+  const backwardResult = graph.migrate(forwardResult.data, '3.0.0', '1.0.0', {
+    initialStash: forwardResult.preservedFields,
+  });
+
+  if (backwardResult.success) {
+    console.log(backwardResult.data);
+    // { version: '1.0.0', name: 'Alice', theme: 'dark' }
+    // Theme was preserved through the round-trip!
+  }
 }
 ```
 
@@ -329,11 +476,81 @@ const graph = createMigrationGraph({
 
 ### Core Types
 
+#### `MigrationResult<T>`
+Result returned by `graph.migrate()`:
+```typescript
+interface MigrationResult<T> {
+  success: boolean;              // Whether migration succeeded
+  data?: T;                      // Migrated data (if success)
+  error?: Error;                 // Error (if !success)
+  path: MigrationPath;           // The path that was executed
+  stash: StashSummary;           // Summary of preserved fields
+  preservedFields: PreservedField[]; // Raw stash for chaining migrations
+}
+```
+
+#### `MigrationPath`
+The path between two versions:
+```typescript
+interface MigrationPath {
+  steps: MigrationStep[];        // Individual migration steps
+  direction: 'up' | 'down' | 'mixed';
+  hasIrreversibleStep: boolean;
+}
+```
+
+#### `MigrationStep`
+A single step in the migration path:
+```typescript
+interface MigrationStep {
+  fromVersion: string;           // Source version
+  toVersion: string;             // Target version
+  direction: 'up' | 'down';
+  migration: AnyMigration;
+}
+```
+
+#### `PreservationMetadata`
+Metadata for `ctx.preserve()`:
+```typescript
+interface PreservationMetadata {
+  sourceVersion?: string;        // Version where field originated
+  description?: string;          // Human-readable description
+  fieldSchema?: FieldSchema;     // Optional validation schema
+}
+```
+
+#### `MigrateOptions`
+Options for `graph.migrate()`:
+```typescript
+interface MigrateOptions {
+  skipValidation?: boolean;      // Skip final validation (default: false)
+  validateIntermediate?: boolean; // Validate each step (default: false)
+  initialStash?: PreservedField[]; // Pass stash from previous migration
+}
+```
+
+#### `StashSummary`
+Summary of field preservation across a migration:
+```typescript
+interface StashSummary {
+  consumed: PreservedFieldSummary[];   // Fields that were preserved and later consumed
+  unconsumed: PreservedFieldSummary[]; // Fields that were preserved but never consumed
+  lossless: boolean;                   // True if all preserved fields were consumed
+}
+
+interface PreservedFieldSummary {
+  path: string;           // Field path that was preserved
+  preservedAt: string;    // Version where field was first preserved
+  consumedAt?: string;    // Version where field was consumed (if it was)
+}
+```
+
+#### Other Types
 - `VersionedSchema<T>` - Schema definition for a version
 - `ReversibleMigration<From, To>` - Bidirectional migration
 - `OneWayMigration<From, To>` - Irreversible migration
-- `MigrationContext` - Context for field preservation
-- `MigrationResult<T>` - Result of executing migrations
+- `MigrationContext` - Context for field preservation (`preserve`, `consume`, `hasPreserved`)
 - `AnalysisResult` - Graph analysis results
 
 ### Core Functions

@@ -6,6 +6,7 @@ JSON Schema integration for migrex - use JSON Schema definitions as versioned sc
 
 - **Ajv-powered validation** - Full JSON Schema draft-07 support via Ajv
 - **Format validators** - Built-in support for email, uri, date-time, and other formats
+- **Schema extension** - Extend schemas across versions without duplication
 - **Field schemas** - Create validated field schemas for the preservation stash
 - **Custom Ajv options** - Configure Ajv with your preferred settings
 
@@ -88,6 +89,56 @@ const migration = {
 };
 ```
 
+### Schema Extension
+
+The `extendJsonSchema` function helps reduce duplication when creating multiple schema versions by allowing you to extend a base schema with new properties:
+
+```typescript
+import { extendJsonSchema, fromJsonSchema } from '@migrex/json-schema';
+
+// Define v1 schema
+const schemaV1 = {
+  type: 'object',
+  properties: {
+    version: { const: '1.0.0' },
+    name: { type: 'string' },
+    port: { type: 'integer', minimum: 1, maximum: 65535 },
+  },
+  required: ['version', 'name', 'port'],
+};
+
+// Extend to v1.1.0 with new logLevel field
+const schemaV1_1 = extendJsonSchema(schemaV1, '1.1.0', {
+  additionalProperties: {
+    logLevel: { type: 'string', enum: ['debug', 'info', 'warn', 'error'] },
+  },
+  additionalRequired: ['logLevel'],
+});
+
+// Remove deprecated fields in v2.0.0
+const schemaV2 = extendJsonSchema(schemaV1_1, '2.0.0', {
+  removeProperties: ['port'],
+  additionalProperties: {
+    serverPort: { type: 'integer', minimum: 1, maximum: 65535 },
+  },
+  additionalRequired: ['serverPort'],
+});
+
+// Register all versions
+const graph = createMigrationGraph({ id: 'config', versionStrategy: semverStrategy });
+graph.registerSchema(fromJsonSchema('1.0.0', schemaV1));
+graph.registerSchema(fromJsonSchema('1.1.0', schemaV1_1));
+graph.registerSchema(fromJsonSchema('2.0.0', schemaV2));
+```
+
+For removing deprecated properties, you can use the convenience function `omitFromJsonSchema`:
+
+```typescript
+import { omitFromJsonSchema } from '@migrex/json-schema';
+
+const schemaV2 = omitFromJsonSchema(schemaV1, '2.0.0', ['deprecatedField']);
+```
+
 ### Deprecation Metadata
 
 ```typescript
@@ -104,6 +155,153 @@ const schemaV1 = fromJsonSchema(
   }
 );
 ```
+
+## Complete Example
+
+A full example showing versioned config files with JSON Schema validation:
+
+```typescript
+import { fromJsonSchema } from '@migrex/json-schema';
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
+import type { ReversibleMigration } from '@migrex/core';
+import { saveVersionedFile, loadVersionedFile, upgradeVersionedFile } from '@migrex/files';
+
+// =============================================================================
+// Step 1: Define TypeScript types and JSON Schemas for each version
+// =============================================================================
+
+// v1.0.0 - Basic config
+type ConfigV1 = { version: '1.0.0'; appName: string; port: number };
+
+const schemaV1 = fromJsonSchema<ConfigV1>('1.0.0', {
+  type: 'object',
+  properties: {
+    version: { const: '1.0.0' },
+    appName: { type: 'string' },
+    port: { type: 'integer', minimum: 1, maximum: 65535 },
+  },
+  required: ['version', 'appName', 'port'],
+});
+
+// v1.1.0 - Add logLevel
+type ConfigV1_1 = { version: '1.1.0'; appName: string; port: number; logLevel: string };
+
+const schemaV1_1 = fromJsonSchema<ConfigV1_1>('1.1.0', {
+  type: 'object',
+  properties: {
+    version: { const: '1.1.0' },
+    appName: { type: 'string' },
+    port: { type: 'integer' },
+    logLevel: { type: 'string', enum: ['debug', 'info', 'warn', 'error'] },
+  },
+  required: ['version', 'appName', 'port', 'logLevel'],
+});
+
+// v2.0.0 - Restructure into nested objects
+type ConfigV2 = {
+  version: '2.0.0';
+  app: { name: string };
+  server: { port: number };
+  logging: { level: string };
+};
+
+const schemaV2 = fromJsonSchema<ConfigV2>('2.0.0', {
+  type: 'object',
+  properties: {
+    version: { const: '2.0.0' },
+    app: {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      required: ['name'],
+    },
+    server: {
+      type: 'object',
+      properties: { port: { type: 'integer' } },
+      required: ['port'],
+    },
+    logging: {
+      type: 'object',
+      properties: { level: { type: 'string' } },
+      required: ['level'],
+    },
+  },
+  required: ['version', 'app', 'server', 'logging'],
+});
+
+// =============================================================================
+// Step 2: Define migrations between versions
+// =============================================================================
+
+const migrationV1ToV1_1: ReversibleMigration<ConfigV1, ConfigV1_1> = {
+  fromVersion: '1.0.0',
+  toVersion: '1.1.0',
+  up: (data) => ({ ...data, version: '1.1.0', logLevel: 'info' }),
+  down: (data) => {
+    const { logLevel, ...rest } = data;
+    return { ...rest, version: '1.0.0' };
+  },
+};
+
+const migrationV1_1ToV2: ReversibleMigration<ConfigV1_1, ConfigV2> = {
+  fromVersion: '1.1.0',
+  toVersion: '2.0.0',
+  up: (data) => ({
+    version: '2.0.0',
+    app: { name: data.appName },
+    server: { port: data.port },
+    logging: { level: data.logLevel },
+  }),
+  down: (data) => ({
+    version: '1.1.0',
+    appName: data.app.name,
+    port: data.server.port,
+    logLevel: data.logging.level,
+  }),
+};
+
+// =============================================================================
+// Step 3: Create migration graph and register everything
+// =============================================================================
+
+const graph = createMigrationGraph({
+  id: 'app-config',
+  versionStrategy: semverStrategy,
+});
+
+graph.registerSchema(schemaV1);
+graph.registerSchema(schemaV1_1);
+graph.registerSchema(schemaV2);
+graph.registerMigration(migrationV1ToV1_1);
+graph.registerMigration(migrationV1_1ToV2);
+
+// =============================================================================
+// Step 4: Use file operations
+// =============================================================================
+
+async function main() {
+  const configPath = './config.json';
+
+  // Save a v1.0.0 config
+  await saveVersionedFile(graph, configPath, {
+    version: '1.0.0',
+    appName: 'MyApp',
+    port: 3000,
+  });
+
+  // Load and auto-migrate to latest (v2.0.0)
+  const result = await loadVersionedFile<ConfigV2>(graph, configPath);
+  console.log('Migrated to:', result.data);
+  // { version: '2.0.0', app: { name: 'MyApp' }, server: { port: 3000 }, logging: { level: 'info' } }
+
+  // Or upgrade the file in place
+  const upgraded = await upgradeVersionedFile(graph, configPath);
+  console.log('Was migrated:', upgraded.wasMigrated);
+}
+
+main();
+```
+
+> **Note**: Your data must include a `version` field that matches a registered schema version. This is how the library detects which version a file contains.
 
 ## API Reference
 
@@ -134,6 +332,32 @@ Create a field schema for use with the preservation stash.
 |-----------|------|-------------|
 | `schema` | `JSONSchema7` | JSON Schema definition |
 | `options` | `{ description?: string }` | Optional description |
+
+### `extendJsonSchema(base, newVersion, options?)`
+
+Extend a JSON Schema with new properties and update the version constant.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `base` | `JSONSchema7` | Base schema to extend |
+| `newVersion` | `string` | New version string |
+| `options` | `ExtendJsonSchemaOptions` | Properties to add/remove |
+
+**Options:**
+- `additionalProperties?: Record<string, JSONSchema7Definition>` - Properties to add
+- `additionalRequired?: string[]` - Fields to add to required array
+- `removeProperties?: string[]` - Properties to remove
+- `removeRequired?: string[]` - Fields to remove from required array
+
+### `omitFromJsonSchema(base, newVersion, propertiesToRemove)`
+
+Convenience function to create a new schema by removing properties.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `base` | `JSONSchema7` | Base schema to extend |
+| `newVersion` | `string` | New version string |
+| `propertiesToRemove` | `string[]` | Properties to remove |
 
 ### `jsonSchemaPlugin`
 

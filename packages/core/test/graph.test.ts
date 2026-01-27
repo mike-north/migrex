@@ -1242,4 +1242,343 @@ describe('MigrationGraph', () => {
       });
     });
   });
+
+  describe('declarative configuration', () => {
+    describe('schemas-only registration', () => {
+      it('should register schemas from options array', () => {
+        const graph = createMigrationGraph({
+          id: 'test-declarative',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2, schemaV3],
+        });
+
+        expect(graph.getSchema('1.0.0')).toBe(schemaV1);
+        expect(graph.getSchema('2.0.0')).toBe(schemaV2);
+        expect(graph.getSchema('3.0.0')).toBe(schemaV3);
+        expect(graph.getVersions()).toEqual(['1.0.0', '2.0.0', '3.0.0']);
+      });
+
+      it('should handle empty schemas array', () => {
+        const graph = createMigrationGraph({
+          id: 'test-empty',
+          versionStrategy: semverStrategy,
+          schemas: [],
+        });
+
+        expect(graph.getVersions()).toHaveLength(0);
+      });
+
+      it('should throw on duplicate schemas in array', () => {
+        expect(() =>
+          createMigrationGraph({
+            id: 'test-duplicate',
+            versionStrategy: semverStrategy,
+            schemas: [schemaV1, schemaV1],
+          })
+        ).toThrow('already registered');
+      });
+    });
+
+    describe('migrations-only registration', () => {
+      it('should register migrations from options array', () => {
+        const graph = createMigrationGraph({
+          id: 'test-declarative',
+          versionStrategy: semverStrategy,
+          migrations: [migrationV1ToV2, migrationV2ToV3],
+        });
+
+        expect(graph.getMigrations()).toHaveLength(2);
+        expect(graph.hasPath('1.0.0', '2.0.0')).toBe(true);
+        expect(graph.hasPath('2.0.0', '3.0.0')).toBe(true);
+        expect(graph.hasPath('1.0.0', '3.0.0')).toBe(true);
+      });
+
+      it('should handle empty migrations array', () => {
+        const graph = createMigrationGraph({
+          id: 'test-empty',
+          versionStrategy: semverStrategy,
+          migrations: [],
+        });
+
+        expect(graph.getMigrations()).toHaveLength(0);
+      });
+
+      it('should throw on duplicate migrations in array', () => {
+        expect(() =>
+          createMigrationGraph({
+            id: 'test-duplicate',
+            versionStrategy: semverStrategy,
+            migrations: [migrationV1ToV2, migrationV1ToV2],
+          })
+        ).toThrow('already registered');
+      });
+    });
+
+    describe('complete declarative configuration', () => {
+      it('should register both schemas and migrations from options', () => {
+        const graph = createMigrationGraph({
+          id: 'test-complete',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2, schemaV3],
+          migrations: [migrationV1ToV2, migrationV2ToV3],
+        });
+
+        expect(graph.getVersions()).toEqual(['1.0.0', '2.0.0', '3.0.0']);
+        expect(graph.getMigrations()).toHaveLength(2);
+        expect(graph.hasPath('1.0.0', '3.0.0')).toBe(true);
+      });
+
+      it('should allow migration with declaratively configured graph', () => {
+        const graph = createMigrationGraph({
+          id: 'test-migration',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2],
+          migrations: [migrationV1ToV2],
+        });
+
+        const result = graph.migrate<V2Data>(
+          { version: '1.0.0', name: 'Test' },
+          '1.0.0',
+          '2.0.0'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({ version: '2.0.0', name: 'Test' });
+      });
+
+      it('should support async migrations in declarative config', () => {
+        const asyncMigration: AsyncReversibleMigration<V1Data, V2Data> = {
+          fromVersion: '1.0.0',
+          toVersion: '2.0.0',
+          up: async (data) => ({
+            version: '2.0.0',
+            name: data.name,
+          }),
+          down: async (data) => ({
+            version: '1.0.0',
+            name: data.name,
+          }),
+        };
+
+        const graph = createMigrationGraph({
+          id: 'test-async',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2],
+          migrations: [asyncMigration],
+        });
+
+        expect(graph.hasPath('1.0.0', '2.0.0')).toBe(true);
+      });
+
+      it('should support one-way migrations in declarative config', () => {
+        const graph = createMigrationGraph({
+          id: 'test-oneway',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2],
+          migrations: [irreversibleMigrationV1ToV2],
+        });
+
+        const result = graph.migrate<V2Data>(
+          { version: '1.0.0', name: 'Test' },
+          '1.0.0',
+          '2.0.0'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.data?.email).toBe('unknown@example.com');
+      });
+    });
+
+    describe('mixed registration', () => {
+      it('should allow adding schemas after declarative initialization', () => {
+        const graph = createMigrationGraph({
+          id: 'test-mixed',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1],
+        });
+
+        graph.registerSchema(schemaV2);
+        graph.registerSchema(schemaV3);
+
+        expect(graph.getVersions()).toEqual(['1.0.0', '2.0.0', '3.0.0']);
+      });
+
+      it('should allow adding migrations after declarative initialization', () => {
+        const graph = createMigrationGraph({
+          id: 'test-mixed',
+          versionStrategy: semverStrategy,
+          migrations: [migrationV1ToV2],
+        });
+
+        graph.registerMigration(migrationV2ToV3);
+
+        expect(graph.getMigrations()).toHaveLength(2);
+        expect(graph.hasPath('1.0.0', '3.0.0')).toBe(true);
+      });
+
+      it('should prevent duplicate registration across declarative and imperative', () => {
+        const graph = createMigrationGraph({
+          id: 'test-duplicate',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1],
+        });
+
+        expect(() => graph.registerSchema(schemaV1)).toThrow('already registered');
+      });
+
+      it('should work with complex migration paths', () => {
+        const graph = createMigrationGraph({
+          id: 'test-complex',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2],
+          migrations: [migrationV1ToV2],
+        });
+
+        // Add additional schema and migration imperatively
+        graph.registerSchema(schemaV3);
+        graph.registerMigration(migrationV2ToV3);
+
+        const result = graph.migrate<V3Data>(
+          { version: '1.0.0', name: 'Test' },
+          '1.0.0',
+          '3.0.0'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({ version: '3.0.0', fullName: 'Test' });
+        expect(result.path.steps).toHaveLength(2);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle undefined schemas and migrations options', () => {
+        const graph = createMigrationGraph({
+          id: 'test-undefined',
+          versionStrategy: semverStrategy,
+          schemas: undefined,
+          migrations: undefined,
+        });
+
+        expect(graph.getVersions()).toHaveLength(0);
+        expect(graph.getMigrations()).toHaveLength(0);
+      });
+
+      it('should work when options omit schemas and migrations', () => {
+        const graph = createMigrationGraph({
+          id: 'test-omit',
+          versionStrategy: semverStrategy,
+        });
+
+        expect(graph.getVersions()).toHaveLength(0);
+        expect(graph.getMigrations()).toHaveLength(0);
+      });
+
+      it('should validate schema versions in declarative config', () => {
+        const invalidSchema = {
+          version: 'invalid-version',
+          schema: () => ({ success: false as const, errors: [] }),
+        };
+
+        expect(() =>
+          createMigrationGraph({
+            id: 'test-invalid',
+            versionStrategy: semverStrategy,
+            schemas: [invalidSchema],
+          })
+        ).toThrow('Invalid version');
+      });
+
+      it('should validate migration versions in declarative config', () => {
+        const invalidMigration = {
+          fromVersion: 'invalid',
+          toVersion: '2.0.0',
+          up: () => ({ version: '2.0.0' as const }),
+        };
+
+        expect(() =>
+          createMigrationGraph({
+            id: 'test-invalid',
+            versionStrategy: semverStrategy,
+            migrations: [invalidMigration],
+          })
+        ).toThrow('Invalid version');
+      });
+
+      it('should work with telemetry and declarative config', () => {
+        const onPathComputed = vi.fn();
+        const graph = createMigrationGraph({
+          id: 'test-telemetry',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1, schemaV2],
+          migrations: [migrationV1ToV2],
+          telemetry: { onPathComputed },
+        });
+
+        graph.migrate<V2Data>(
+          { version: '1.0.0', name: 'Test' },
+          '1.0.0',
+          '2.0.0'
+        );
+
+        expect(onPathComputed).toHaveBeenCalledTimes(1);
+      });
+
+      it('should handle single schema in declarative config', () => {
+        const graph = createMigrationGraph({
+          id: 'test-single',
+          versionStrategy: semverStrategy,
+          schemas: [schemaV1],
+        });
+
+        expect(graph.getVersions()).toEqual(['1.0.0']);
+        expect(graph.getSchema('1.0.0')).toBe(schemaV1);
+      });
+
+      it('should handle single migration in declarative config', () => {
+        const graph = createMigrationGraph({
+          id: 'test-single',
+          versionStrategy: semverStrategy,
+          migrations: [migrationV1ToV2],
+        });
+
+        expect(graph.getMigrations()).toHaveLength(1);
+        expect(graph.hasPath('1.0.0', '2.0.0')).toBe(true);
+      });
+    });
+
+    describe('type safety', () => {
+      it('should accept typed schema arrays', () => {
+        const typedSchemas: VersionedSchema<V1Data | V2Data>[] = [schemaV1, schemaV2];
+
+        const graph = createMigrationGraph({
+          id: 'test-typed',
+          versionStrategy: semverStrategy,
+          schemas: typedSchemas,
+        });
+
+        expect(graph.getVersions()).toEqual(['1.0.0', '2.0.0']);
+      });
+
+      it('should accept mixed migration types', () => {
+        const reversible: ReversibleMigration<V1Data, V2Data> = migrationV1ToV2;
+        const oneWay: OneWayMigration<V1Data, V2Data> = irreversibleMigrationV1ToV2;
+
+        // Should accept both types in the migrations array
+        const graph1 = createMigrationGraph({
+          id: 'test-reversible',
+          versionStrategy: semverStrategy,
+          migrations: [reversible],
+        });
+
+        const graph2 = createMigrationGraph({
+          id: 'test-oneway',
+          versionStrategy: semverStrategy,
+          migrations: [oneWay],
+        });
+
+        expect(graph1.getMigrations()).toHaveLength(1);
+        expect(graph2.getMigrations()).toHaveLength(1);
+      });
+    });
+  });
 });

@@ -88,3 +88,17 @@ export type {
   DeprecatedVersionInfo,
   PathSummary,
 } from './analysis/types.js';
+
+// Helpers
+export {
+  addField,
+  removeField,
+  renameField,
+  restructure,
+} from './helpers/index.js';
+export type {
+  AddFieldOptions,
+  RemoveFieldOptions,
+  RenameFieldOptions,
+  RestructureOptions,
+} from './helpers/index.js';

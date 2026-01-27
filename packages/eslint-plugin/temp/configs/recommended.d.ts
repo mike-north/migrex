@@ -8,3 +8,4 @@ import type { Linter } from 'eslint';
  * Enables consume-check as error, graph-health as warning.
  */
 export declare const recommended: Linter.Config;
+//# sourceMappingURL=recommended.d.ts.map

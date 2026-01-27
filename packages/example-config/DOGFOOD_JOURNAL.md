@@ -317,8 +317,8 @@ I'm going to model an application configuration that evolves through 4 versions:
 - **Preservation API**: The `ctx.preserve()` and `ctx.consume()` API is intuitive:
   ```typescript
   ctx.preserve('theme', data.theme, {
-    requiredForVersion: '3.0.0',
-    reason: 'Theme preference is restored in v3',
+    sourceVersion: '1.0.0',
+    description: 'Theme preference is restored in v3',
   });
 
   const preserved = ctx.consume('theme');
@@ -343,8 +343,8 @@ I'm going to model an application configuration that evolves through 4 versions:
 - **Documentation Needed**: The field preservation feature is powerful but could use more examples in the README.
 
 **Observations:**
-- The `reason` field in `preserve()` is great for self-documenting migrations. It explains WHY a field is being preserved.
-- The `requiredForVersion` field helps document which version will consume the field.
+- The `description` field in `preserve()` is great for self-documenting migrations. It explains WHY a field is being preserved.
+- The `sourceVersion` field helps document where the field originated.
 - The fallback pattern (`preserved?.value ?? defaultValue`) is a common and good pattern.
 
 ## Final Summary
