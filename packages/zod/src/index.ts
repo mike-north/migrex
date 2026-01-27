@@ -207,3 +207,6 @@ export function createFieldSchema<T>(
  * ```
  */
 export type InferZodSchema<T extends ZodType> = z.infer<T>;
+
+// Export schema extension utilities
+export { extendZodSchema, omitFromZodSchema } from './extend.js';

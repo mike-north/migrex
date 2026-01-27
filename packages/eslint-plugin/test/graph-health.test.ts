@@ -5,7 +5,7 @@
 import { RuleTester } from '@typescript-eslint/rule-tester';
 import { afterAll, describe, it } from 'vitest';
 import { graphHealth } from '../src/rules/graph-health.js';
-import { createMigrationGraph } from '@migrex/core';
+import { createMigrationGraph, semverStrategy } from '@migrex/core';
 
 // Set up the test framework for RuleTester
 RuleTester.afterAll = afterAll;
@@ -26,6 +26,8 @@ describe('graph-health', () => {
 
   it('should pass for a fully connected graph', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-connected',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -59,6 +61,8 @@ describe('graph-health', () => {
 
   it('should report disconnected components', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-disconnected',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -102,6 +106,8 @@ describe('graph-health', () => {
 
   it('should report deprecated versions in paths', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-deprecated',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -155,6 +161,8 @@ describe('graph-health', () => {
 
   it('should report lossy paths', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-lossy',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -198,6 +206,8 @@ describe('graph-health', () => {
 
   it('should suggest migrations to improve graph', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-suggest',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -246,6 +256,8 @@ describe('graph-health', () => {
 
   it('should not suggest improvements when disabled', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-no-suggest',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -293,6 +305,8 @@ describe('graph-health', () => {
 
   it('should handle lossy paths as errors when configured', () => {
     const graph = createMigrationGraph({
+      id: 'test-graph-lossy-error',
+      versionStrategy: semverStrategy,
       schemas: [
         {
           version: '1.0.0',
@@ -349,6 +363,8 @@ describe('graph-health', () => {
   it('should handle edge cases', () => {
     // Empty graph (no schemas)
     const emptyGraph = createMigrationGraph({
+      id: 'test-graph-empty',
+      versionStrategy: semverStrategy,
       schemas: [],
       migrations: [],
     });

@@ -8,3 +8,4 @@ import type { Linter } from 'eslint';
  * Enables all rules with strict settings.
  */
 export declare const strict: Linter.Config;
+//# sourceMappingURL=strict.d.ts.map

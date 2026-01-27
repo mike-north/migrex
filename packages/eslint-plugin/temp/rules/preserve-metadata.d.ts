@@ -25,3 +25,4 @@ export interface PreserveMetadataRuleOptions {
 }
 export declare const preserveMetadata: ESLintUtils.RuleModule<MessageIds, [PreserveMetadataRuleOptions?], unknown, ESLintUtils.RuleListener>;
 export {};
+//# sourceMappingURL=preserve-metadata.d.ts.map

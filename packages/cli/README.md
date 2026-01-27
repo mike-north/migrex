@@ -84,7 +84,7 @@ migrex generate-types --graph ./src/migrations/graph.ts -o ./src/types/migrex.d.
 
 ### init
 
-Initialize project structure with a starter migration graph.
+Initialize project structure with a starter migration graph or use templates for common patterns.
 
 ```bash
 migrex init [options]
@@ -93,10 +93,35 @@ migrex init [options]
 Options:
 - `-p, --plugin <plugin>` - Plugin to use: `zod` or `json-schema` (default: `zod`)
 - `-v, --version <version>` - Initial version (default: `1.0.0`)
+- `-t, --template <template>` - Template to use: `basic`, `config`, or `rest-api` (default: `basic`)
 
 ```bash
+# Basic initialization
 migrex init --plugin zod --version 1.0.0
+
+# Using templates
+migrex init --template config --plugin zod
+migrex init --template rest-api --plugin json-schema
 ```
+
+#### Templates
+
+**basic** (default): Initializes a basic migration graph with a single schema.
+
+**config**: Generates a complete versioned configuration setup:
+- `src/config/schemas.ts` - Schema definitions for v1.0.0 and v1.1.0
+- `src/config/migrations.ts` - Migration between versions
+- `src/config/graph.ts` - Migration graph configuration
+- `src/config/index.ts` - Helper functions (`loadConfig`, `saveConfig`)
+
+**rest-api**: Generates a complete REST endpoint versioning setup:
+- `src/api/schemas/user-request.ts` - Request schemas for v1 and v2
+- `src/api/schemas/user-response.ts` - Response schemas (includes server fields)
+- `src/api/migrations.ts` - Migrations for both requests and responses
+- `src/api/endpoints.ts` - Configured REST endpoint
+- `src/api/index.ts` - Example handler showing usage
+
+These templates provide working examples you can customize for your use case.
 
 ### new schema
 

@@ -4,3 +4,4 @@
  */
 export { recommended } from './recommended.js';
 export { strict } from './strict.js';
+//# sourceMappingURL=index.d.ts.map

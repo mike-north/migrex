@@ -147,6 +147,7 @@ export function initCommand(options: InitOptions): Promise<InitResult>;
 // @public
 export interface InitOptions {
     plugin?: 'zod' | 'json-schema';
+    template?: 'basic' | 'config' | 'rest-api';
     version?: string;
 }
 

@@ -153,3 +153,6 @@ packages/*/temp/*.api.md
 # Keep temp directory itself
 !packages/*/temp/.gitkeep
 .claude/
+
+# Claude Code local configuration (auto-added)
+.claude/*.local.*

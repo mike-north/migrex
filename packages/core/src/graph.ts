@@ -823,9 +823,35 @@ class MigrationGraphImpl implements MigrationGraph {
  *   schema: (data) => // ... validation logic
  * });
  * ```
+ *
+ * @example Declarative configuration
+ * ```typescript
+ * const graph = createMigrationGraph({
+ *   id: 'my-api',
+ *   versionStrategy: semverStrategy,
+ *   schemas: [schemaV1, schemaV2],
+ *   migrations: [migrationV1ToV2],
+ * });
+ * ```
  */
 export function createMigrationGraph(
   options: MigrationGraphOptions
 ): MigrationGraph {
-  return new MigrationGraphImpl(options);
+  const graph = new MigrationGraphImpl(options);
+
+  // Register schemas if provided
+  if (options.schemas) {
+    for (const schema of options.schemas) {
+      graph.registerSchema(schema);
+    }
+  }
+
+  // Register migrations if provided
+  if (options.migrations) {
+    for (const migration of options.migrations) {
+      graph.registerMigration(migration);
+    }
+  }
+
+  return graph;
 }

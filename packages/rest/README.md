@@ -91,6 +91,62 @@ app.post('/users', async (req, res) => {
 });
 ```
 
+### Unified REST Endpoint Builder
+
+For simpler cases where you want to configure both request and response migrations together, use `createVersionedRESTEndpoint`:
+
+```typescript
+import { createVersionedRESTEndpoint, extractVersionFromHeader } from '@migrex/rest';
+import { fromZod } from '@migrex/zod';
+import { semverStrategy } from '@migrex/core';
+
+const endpoint = createVersionedRESTEndpoint({
+  id: 'users',
+  versionStrategy: semverStrategy,
+  extractVersion: extractVersionFromHeader('X-API-Version'),
+  defaultVersion: '1.0.0',
+  versions: {
+    '1.0.0': {
+      request: fromZod('1.0.0', UserRequestV1),
+      response: fromZod('1.0.0', UserResponseV1),
+    },
+    '2.0.0': {
+      request: fromZod('2.0.0', UserRequestV2),
+      response: fromZod('2.0.0', UserResponseV2),
+    },
+  },
+  migrations: [
+    {
+      fromVersion: '1.0.0',
+      toVersion: '2.0.0',
+      request: {
+        up: (data) => ({ firstName: data.name.split(' ')[0], lastName: data.name.split(' ').slice(1).join(' ') }),
+        down: (data) => ({ name: `${data.firstName} ${data.lastName}`.trim() }),
+      },
+      response: {
+        up: (data) => ({ ...data, firstName: data.name.split(' ')[0], lastName: data.name.split(' ').slice(1).join(' ') }),
+        down: (data) => ({ id: data.id, name: `${data.firstName} ${data.lastName}`.trim(), createdAt: data.createdAt }),
+      },
+    },
+  ],
+});
+
+// In your endpoint handler
+app.post('/users', async (req, res) => {
+  // Parse request to internal version (2.0.0)
+  const { version, body } = endpoint.parseRequest(req, '2.0.0');
+
+  // Process with v2 logic
+  const user = { id: generateId(), ...body, createdAt: new Date().toISOString() };
+
+  // Format response back to client's version
+  const responseData = endpoint.formatResponse(user, version, '2.0.0');
+  res.json(responseData);
+});
+```
+
+This approach creates two internal migration graphs (one for requests, one for responses) but exposes a unified API for configuration.
+
 ### Request vs Response Schemas
 
 REST APIs typically have different schemas for requests and responses. For example, a POST request might have `{ name: string }` but the response includes server-generated fields like `{ id: string, name: string, createdAt: string }`.

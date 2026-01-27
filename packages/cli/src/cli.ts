@@ -77,6 +77,11 @@ export async function runCli(args: string[]): Promise<void> {
     .command('init')
     .description('Initialize project structure')
     .option(
+      '-t, --template <template>',
+      'Template to use (basic, config, or rest-api)',
+      'basic'
+    )
+    .option(
       '-p, --plugin <plugin>',
       'Plugin to use (zod or json-schema)',
       'zod'

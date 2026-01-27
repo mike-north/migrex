@@ -7,6 +7,7 @@
 import { Ajv } from 'ajv';
 import type { FieldSchema } from '@migrex/core';
 import type { JSONSchema7 as JSONSchema } from 'json-schema';
+import type { JSONSchema7Definition } from 'json-schema';
 import type { Options } from 'ajv';
 import type { ValidationResult } from '@migrex/core';
 import type { VersionedSchema } from '@migrex/core';
@@ -18,6 +19,17 @@ export function createFieldSchema(schema: JSONSchema, options?: {
 
 // @public
 export function createJsonSchemaPlugin(options?: JsonSchemaPluginOptions): JsonSchemaPlugin;
+
+// @public
+export function extendJsonSchema(base: JSONSchema, newVersion: string, options?: ExtendJsonSchemaOptions): JSONSchema;
+
+// @public
+export interface ExtendJsonSchemaOptions {
+    additionalProperties?: Record<string, JSONSchema7Definition>;
+    additionalRequired?: string[];
+    removeProperties?: string[];
+    removeRequired?: string[];
+}
 
 // @public
 export function fromJsonSchema<T = unknown>(version: string, schema: JSONSchema, options?: FromJsonSchemaOptions<T>): VersionedSchema<T>;
@@ -56,5 +68,8 @@ export interface JsonSchemaPluginOptions {
     ajvOptions?: Options;
     useFormats?: boolean;
 }
+
+// @public
+export function omitFromJsonSchema(base: JSONSchema, newVersion: string, propertiesToRemove: string[]): JSONSchema;
 
 ```

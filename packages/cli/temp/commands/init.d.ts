@@ -13,6 +13,8 @@ export interface InitOptions {
     plugin?: 'zod' | 'json-schema';
     /** Initial version */
     version?: string;
+    /** Template to use (config or rest-api) */
+    template?: 'basic' | 'config' | 'rest-api';
 }
 /**
  * Result of the init command.

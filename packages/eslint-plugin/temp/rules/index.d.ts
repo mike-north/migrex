@@ -5,3 +5,4 @@
 export { consumeCheck } from './consume-check.js';
 export { graphHealth } from './graph-health.js';
 export { preserveMetadata } from './preserve-metadata.js';
+//# sourceMappingURL=index.d.ts.map

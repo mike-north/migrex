@@ -5,7 +5,7 @@
  */
 
 import { writeFile, mkdir, access } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { ExitCode } from '../utils/exit-codes.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -14,6 +14,8 @@ import {
   generateReadmeTemplate,
 } from '../templates/config.template.js';
 import { generateSchemaTemplate } from '../templates/schema.template.js';
+import { configTemplate, restApiTemplate } from '../templates/index.js';
+import type { TemplateOptions } from '../templates/index.js';
 
 /**
  * Options for the init command.
@@ -24,6 +26,8 @@ export interface InitOptions {
   plugin?: 'zod' | 'json-schema';
   /** Initial version */
   version?: string;
+  /** Template to use (config or rest-api) */
+  template?: 'basic' | 'config' | 'rest-api';
 }
 
 /**
@@ -40,6 +44,93 @@ export interface InitResult {
 }
 
 /**
+ * Initialize project using a template.
+ */
+async function initWithTemplate(
+  templateName: 'config' | 'rest-api',
+  plugin: 'zod' | 'json-schema',
+  cwd: string,
+  filesCreated: string[]
+): Promise<InitResult> {
+  const template = templateName === 'config' ? configTemplate : restApiTemplate;
+
+  // Determine project name from current directory
+  const projectName = cwd.split('/').pop() ?? 'my-project';
+
+  // Generate template files
+  const templateOptions: TemplateOptions = {
+    projectName,
+    plugin,
+    outputDir: cwd,
+  };
+
+  const generatedFiles = await template.generate(templateOptions);
+
+  // Write all generated files
+  for (const file of generatedFiles) {
+    const filePath = resolve(cwd, file.path);
+    const fileDir = dirname(filePath);
+
+    // Create directory if it doesn't exist
+    await mkdir(fileDir, { recursive: true });
+
+    // Write file
+    await writeFile(filePath, file.content, 'utf-8');
+    filesCreated.push(file.path);
+  }
+
+  // Generate .gitignore
+  const gitignorePath = resolve(cwd, '.gitignore');
+  try {
+    await access(gitignorePath);
+    // Append to existing .gitignore
+    const gitignoreContent = `\n${generateGitignoreTemplate()}`;
+    await writeFile(gitignorePath, gitignoreContent, {
+      encoding: 'utf-8',
+      flag: 'a',
+    });
+    filesCreated.push('.gitignore (updated)');
+  } catch {
+    // Create new .gitignore
+    const gitignoreContent = generateGitignoreTemplate();
+    await writeFile(gitignorePath, gitignoreContent, 'utf-8');
+    filesCreated.push('.gitignore');
+  }
+
+  // Generate README
+  const readmePath = resolve(cwd, 'MIGREX.md');
+  const readmeContent = generateReadmeTemplate({ plugin });
+  await writeFile(readmePath, readmeContent, 'utf-8');
+  filesCreated.push('MIGREX.md');
+
+  // Success message
+  logger.success(`Initialized migrex project with ${template.name} template`);
+  logger.log('');
+  logger.log('Created files:');
+  filesCreated.forEach((file) => {
+    logger.log(`  - ${file}`);
+  });
+  logger.log('');
+  logger.log('Next steps:');
+
+  if (templateName === 'config') {
+    logger.log('  1. Review the generated config schemas in src/config/schemas.ts');
+    logger.log('  2. Customize the config structure for your needs');
+    logger.log('  3. Use loadConfig() and saveConfig() from src/config/index.ts');
+  } else {
+    logger.log('  1. Review the generated API schemas in src/api/schemas/');
+    logger.log('  2. Customize the request/response structures');
+    logger.log('  3. Use the endpoint handler from src/api/index.ts');
+    logger.log('  4. Integrate with your web framework (Express, Fastify, etc.)');
+  }
+
+  return {
+    exitCode: ExitCode.SUCCESS,
+    filesCreated,
+  };
+}
+
+/**
  * Execute the init command.
  * Creates project structure with config file, example schema, and directories.
  *
@@ -51,10 +142,21 @@ export async function initCommand(options: InitOptions): Promise<InitResult> {
   const plugin = options.plugin ?? 'zod';
   const initialVersion = options.version ?? '1.0.0';
   const versionIdentifier = initialVersion.replace(/\./g, '_');
+  const template = options.template ?? 'basic';
 
   try {
     const cwd = process.cwd();
     const filesCreated: string[] = [];
+
+    // If using a template, generate from template
+    if (template === 'config' || template === 'rest-api') {
+      return await initWithTemplate(
+        template,
+        plugin,
+        cwd,
+        filesCreated
+      );
+    }
 
     // Check if config file already exists
     const configPath = resolve(cwd, 'migrex.config.ts');
