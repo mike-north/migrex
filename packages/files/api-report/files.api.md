@@ -34,6 +34,9 @@ export interface LoadResult<T> {
 export function loadVersionedFile<T>(graph: MigrationGraph, filePath: string, options?: LoadOptions): Promise<LoadResult<T>>;
 
 // @public
+export function loadVersionedFileSync<T>(graph: MigrationGraph, filePath: string, options?: LoadOptions): LoadResult<T>;
+
+// @public
 export interface SaveOptions {
     format?: 'json' | 'yaml' | 'toml';
     pretty?: boolean;
@@ -42,6 +45,9 @@ export interface SaveOptions {
 
 // @public
 export function saveVersionedFile(graph: MigrationGraph, filePath: string, data: unknown, options?: SaveOptions): Promise<void>;
+
+// @public
+export function saveVersionedFileSync(graph: MigrationGraph, filePath: string, data: unknown, options?: SaveOptions): void;
 
 // @public
 export interface UpgradeOptions {
@@ -62,6 +68,9 @@ export interface UpgradeResult {
 
 // @public
 export function upgradeVersionedFile(graph: MigrationGraph, filePath: string, options?: UpgradeOptions): Promise<UpgradeResult>;
+
+// @public
+export function upgradeVersionedFileSync(graph: MigrationGraph, filePath: string, options?: UpgradeOptions): UpgradeResult;
 
 // @public
 export interface VersionDiff {

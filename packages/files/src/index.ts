@@ -9,7 +9,7 @@
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { watch } from 'node:fs';
+import { readFileSync, writeFileSync, watch } from 'node:fs';
 import type {
   MigrationGraph,
   MigrationPath,
@@ -347,6 +347,131 @@ export async function loadVersionedFile<T>(
 }
 
 /**
+ * Synchronously load a versioned file and migrate to target version.
+ *
+ * This is a synchronous version of {@link loadVersionedFile}. It will throw
+ * a {@link VersionedFileError} if the migration path contains any async migrations.
+ *
+ * @template T - The type of the loaded data
+ * @param graph - Migration graph containing schemas and migrations
+ * @param filePath - Path to versioned file
+ * @param options - Loading options
+ * @returns Loaded data with migration info
+ * @throws {VersionedFileError} If file cannot be read or parsed, or if migration path contains async migrations
+ * @throws {MigrationError} If migration fails
+ *
+ * @example
+ * ```typescript
+ * const result = loadVersionedFileSync(graph, './data.json', {
+ *   targetVersion: '2.0.0'
+ * });
+ * console.log(result.data);
+ * ```
+ *
+ * @public
+ */
+export function loadVersionedFileSync<T>(
+  graph: MigrationGraph,
+  filePath: string,
+  options: LoadOptions = {}
+): LoadResult<T> {
+  // Read file synchronously
+  let content: string;
+  try {
+    content = readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    throw new VersionedFileError(
+      `Failed to read file: ${filePath}`,
+      filePath,
+      error
+    );
+  }
+
+  // Detect format
+  const format = options.format ?? detectFormat(filePath);
+
+  // Parse file
+  let rawData: unknown;
+  try {
+    rawData = parseContent(content, format);
+  } catch (error) {
+    throw new VersionedFileError(
+      `Failed to parse file as ${format.toUpperCase()}: ${filePath}`,
+      filePath,
+      error
+    );
+  }
+
+  // Extract source version
+  const sourceVersion = extractVersion(rawData);
+  if (!sourceVersion) {
+    throw new VersionedFileError(
+      `File missing 'version' field: ${filePath}`,
+      filePath
+    );
+  }
+
+  // Determine target version
+  const targetVersion = options.targetVersion ?? getLatestVersion(graph);
+
+  // Migrate if needed
+  const wasUpgraded = sourceVersion !== targetVersion;
+  let data: T;
+  let migrationPath: MigrationPath | undefined;
+
+  if (wasUpgraded) {
+    // Check for async migrations before attempting sync migrate
+    const path = graph.getPath(sourceVersion, targetVersion);
+    assertNoAsyncMigrations(path, filePath);
+
+    // Use sync migrate
+    const result: MigrationResult<T> = graph.migrate<T>(
+      rawData,
+      sourceVersion,
+      targetVersion
+    );
+
+    if (!result.success) {
+      throw new VersionedFileError(
+        `Failed to migrate from ${sourceVersion} to ${targetVersion}: ${result.error?.message}`,
+        filePath,
+        result.error
+      );
+    }
+
+    data = result.data as T;
+    migrationPath = result.path;
+  } else {
+    // No migration needed, validate only
+    const schema = graph.getSchema(sourceVersion);
+    if (!schema) {
+      throw new VersionedFileError(
+        `No schema registered for version ${sourceVersion}`,
+        filePath
+      );
+    }
+
+    const validationResult = schema.schema(rawData);
+    if (!validationResult.success) {
+      throw new VersionedFileError(
+        `Validation failed: ${formatValidationErrors(validationResult.errors ?? [])}`,
+        filePath
+      );
+    }
+
+    data = validationResult.data as T;
+  }
+
+  return {
+    data,
+    sourceVersion,
+    targetVersion,
+    ...(migrationPath !== undefined ? { migrationPath } : {}),
+    wasUpgraded,
+  };
+}
+
+/**
  * Save data to a versioned file.
  *
  * @param graph - Migration graph (used to determine version if not specified)
@@ -408,6 +533,78 @@ export async function saveVersionedFile(
   // Write file
   try {
     await writeFile(filePath, content, 'utf-8');
+  } catch (error) {
+    throw new VersionedFileError(
+      `Failed to write file: ${filePath}`,
+      filePath,
+      error
+    );
+  }
+}
+
+/**
+ * Synchronously save data to a versioned file.
+ *
+ * This is a synchronous version of {@link saveVersionedFile}.
+ *
+ * @param graph - Migration graph (used to determine version if not specified)
+ * @param filePath - Path to file
+ * @param data - Data to save
+ * @param options - Save options
+ * @throws {VersionedFileError} If file cannot be written or validation fails
+ *
+ * @example
+ * ```typescript
+ * saveVersionedFileSync(graph, './data.json', {
+ *   version: '2.0.0',
+ *   name: 'My App',
+ *   port: 3000
+ * });
+ * ```
+ *
+ * @public
+ */
+export function saveVersionedFileSync(
+  graph: MigrationGraph,
+  filePath: string,
+  data: unknown,
+  options: SaveOptions = {}
+): void {
+  // Determine version
+  const version =
+    options.version ?? extractVersion(data) ?? getLatestVersion(graph);
+
+  // Ensure data has version field
+  const dataWithVersion =
+    typeof data === 'object' && data !== null
+      ? { ...data, version }
+      : { version, data };
+
+  // Detect format
+  const format = options.format ?? detectFormat(filePath);
+
+  // Validate against schema
+  const schema = graph.getSchema(version);
+  if (schema) {
+    const validationResult = schema.schema(dataWithVersion);
+    if (!validationResult.success) {
+      throw new VersionedFileError(
+        `Cannot save invalid data: ${formatValidationErrors(validationResult.errors ?? [])}`,
+        filePath
+      );
+    }
+  }
+
+  // Serialize
+  const content = serializeContent(
+    dataWithVersion,
+    format,
+    options.pretty ?? true
+  );
+
+  // Write file synchronously
+  try {
+    writeFileSync(filePath, content, 'utf-8');
   } catch (error) {
     throw new VersionedFileError(
       `Failed to write file: ${filePath}`,
@@ -483,6 +680,77 @@ export async function upgradeVersionedFile(
     saveOptions.format = options.format;
   }
   await saveVersionedFile(graph, filePath, loadResult.data, saveOptions);
+
+  return {
+    sourceVersion: loadResult.sourceVersion,
+    targetVersion: loadResult.targetVersion,
+    wasWritten: true,
+    wasMigrated,
+    ...(loadResult.migrationPath !== undefined
+      ? { migrationPath: loadResult.migrationPath }
+      : {}),
+  };
+}
+
+/**
+ * Synchronously upgrade a versioned file in place to a target version.
+ *
+ * This is a synchronous version of {@link upgradeVersionedFile}. It will throw
+ * a {@link VersionedFileError} if the migration path contains any async migrations.
+ *
+ * @param graph - Migration graph containing schemas and migrations
+ * @param filePath - Path to versioned file
+ * @param options - Upgrade options
+ * @returns Upgrade result with migration info
+ * @throws {VersionedFileError} If file cannot be read, parsed, written, or if migration path contains async migrations
+ * @throws {MigrationError} If migration fails
+ *
+ * @example
+ * ```typescript
+ * const result = upgradeVersionedFileSync(graph, './data.json');
+ * if (result.wasMigrated) {
+ *   console.log(`Upgraded from ${result.sourceVersion} to ${result.targetVersion}`);
+ * }
+ * ```
+ *
+ * @public
+ */
+export function upgradeVersionedFileSync(
+  graph: MigrationGraph,
+  filePath: string,
+  options: UpgradeOptions = {}
+): UpgradeResult {
+  const skipIfCurrent = options.skipIfCurrent ?? true;
+  const targetVersion = options.targetVersion ?? getLatestVersion(graph);
+
+  // Load and migrate the file synchronously
+  const loadOptions: LoadOptions = { targetVersion };
+  if (options.format !== undefined) {
+    loadOptions.format = options.format;
+  }
+  const loadResult = loadVersionedFileSync(graph, filePath, loadOptions);
+
+  const wasMigrated = loadResult.wasUpgraded;
+
+  // If already at target version and skipIfCurrent is true, don't write
+  if (!wasMigrated && skipIfCurrent) {
+    return {
+      sourceVersion: loadResult.sourceVersion,
+      targetVersion: loadResult.targetVersion,
+      wasWritten: false,
+      wasMigrated: false,
+    };
+  }
+
+  // Write the migrated data back to disk synchronously
+  const saveOptions: SaveOptions = {
+    version: targetVersion,
+    pretty: options.pretty ?? true,
+  };
+  if (options.format !== undefined) {
+    saveOptions.format = options.format;
+  }
+  saveVersionedFileSync(graph, filePath, loadResult.data, saveOptions);
 
   return {
     sourceVersion: loadResult.sourceVersion,
@@ -638,6 +906,45 @@ export function diffVersions(
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Check if a function is async (declared with 'async' keyword).
+ *
+ * Note: This detection checks the function's constructor name, which only
+ * catches functions declared with the `async` keyword. Functions that return
+ * promises without using `async` (e.g., `() => Promise.resolve(x)`) are not
+ * detected. The migration graph's sync executor will still fail safely if
+ * such functions are encountered during execution.
+ */
+function isAsyncFunction(fn: unknown): boolean {
+  return (
+    typeof fn === 'function' && fn.constructor.name === 'AsyncFunction'
+  );
+}
+
+/**
+ * Check migration path for async migrations and throw if found.
+ * This is used by sync APIs to fail fast before attempting migration.
+ */
+function assertNoAsyncMigrations(path: MigrationPath, filePath: string): void {
+  for (const step of path.steps) {
+    const migration = step.migration;
+    if (isAsyncFunction(migration.up)) {
+      throw new VersionedFileError(
+        `Cannot use sync API: migration from ${step.fromVersion} to ${step.toVersion} has async 'up' function. ` +
+          `Use loadVersionedFile() or upgradeVersionedFile() instead.`,
+        filePath
+      );
+    }
+    if (migration.down !== undefined && isAsyncFunction(migration.down)) {
+      throw new VersionedFileError(
+        `Cannot use sync API: migration from ${step.fromVersion} to ${step.toVersion} has async 'down' function. ` +
+          `Use loadVersionedFile() or upgradeVersionedFile() instead.`,
+        filePath
+      );
+    }
+  }
+}
 
 /**
  * Detect file format from file extension.
