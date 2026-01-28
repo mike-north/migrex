@@ -1,5 +1,23 @@
 # @migrex/files
 
+## 1.0.0-alpha.4
+
+### Minor Changes
+
+- [#13](https://github.com/mike-north/migrex/pull/13) [`edbb502`](https://github.com/mike-north/migrex/commit/edbb5020e9dc83ccdc96d47af150abc936b9f651) Thanks [@mike-north](https://github.com/mike-north)! - Add synchronous versions of file operations
+
+  New synchronous APIs enable blocking file operations for CLI tools, scripts, and tests:
+  - `loadVersionedFileSync()` - Synchronously load and migrate versioned files
+  - `saveVersionedFileSync()` - Synchronously save versioned files
+  - `upgradeVersionedFileSync()` - Synchronously upgrade files in place
+
+  **Important**: Sync APIs will throw a `VersionedFileError` if the migration path contains any async migrations (migrations declared with the `async` keyword). Use the async versions (`loadVersionedFile`, `saveVersionedFile`, `upgradeVersionedFile`) when migrations may be asynchronous.
+
+  **Use cases:**
+  - CLI applications that need blocking behavior
+  - Build scripts and automation tools
+  - Test fixtures and setup code
+
 ## 1.0.0-alpha.3
 
 ### Minor Changes
