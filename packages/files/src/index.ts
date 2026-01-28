@@ -3,6 +3,7 @@
  *
  * This package provides utilities for loading, saving, watching,
  * and upgrading versioned files with automatic migration support.
+ * Supports JSON, YAML, and TOML file formats with automatic detection.
  *
  * @packageDocumentation
  */
@@ -14,6 +15,8 @@ import type {
   MigrationPath,
   MigrationResult,
 } from '@migrex/core';
+import { load as yamlLoad, dump as yamlDump, JSON_SCHEMA } from 'js-yaml';
+import { parse as tomlParse, stringify as tomlStringify } from 'smol-toml';
 
 /**
  * Options for loading a versioned file.
@@ -29,12 +32,9 @@ export interface LoadOptions {
 
   /**
    * File format to use for parsing.
-   * If not specified, detected from file extension (.json or .yaml).
-   *
-   * **Note:** YAML format is not yet supported. Attempting to load a YAML file
-   * will throw an error. This limitation will be addressed in a future release.
+   * If not specified, detected from file extension (.json, .yaml, or .toml).
    */
-  format?: 'json' | 'yaml';
+  format?: 'json' | 'yaml' | 'toml';
 }
 
 /**
@@ -74,11 +74,9 @@ export interface UpgradeOptions {
 
   /**
    * File format to use for reading/writing.
-   * If not specified, detected from file extension (.json or .yaml).
-   *
-   * **Note:** YAML format is not yet supported.
+   * If not specified, detected from file extension (.json, .yaml, or .toml).
    */
-  format?: 'json' | 'yaml';
+  format?: 'json' | 'yaml' | 'toml';
 
   /**
    * Whether to pretty-print the output (default: true).
@@ -128,12 +126,9 @@ export interface SaveOptions {
 
   /**
    * File format to use for serialization.
-   * If not specified, detected from file extension (.json or .yaml).
-   *
-   * **Note:** YAML format is not yet supported. Attempting to save as YAML
-   * will throw an error. This limitation will be addressed in a future release.
+   * If not specified, detected from file extension (.json, .yaml, or .toml).
    */
-  format?: 'json' | 'yaml';
+  format?: 'json' | 'yaml' | 'toml';
 
   /**
    * Whether to pretty-print the output (default: true).
@@ -647,9 +642,12 @@ export function diffVersions(
 /**
  * Detect file format from file extension.
  */
-function detectFormat(filePath: string): 'json' | 'yaml' {
+function detectFormat(filePath: string): 'json' | 'yaml' | 'toml' {
   if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
     return 'yaml';
+  }
+  if (filePath.endsWith('.toml')) {
+    return 'toml';
   }
   return 'json';
 }
@@ -657,11 +655,18 @@ function detectFormat(filePath: string): 'json' | 'yaml' {
 /**
  * Parse file content based on format.
  */
-function parseContent(content: string, format: 'json' | 'yaml'): unknown {
+function parseContent(
+  content: string,
+  format: 'json' | 'yaml' | 'toml'
+): unknown {
   if (format === 'yaml') {
-    throw new Error(
-      'YAML format not yet supported. Please install a YAML parser library and configure it.'
-    );
+    // Use JSON_SCHEMA to prevent YAML-specific type coercion (e.g., yes/no -> boolean)
+    // and avoid code execution vulnerabilities from custom tags
+    return yamlLoad(content, { schema: JSON_SCHEMA });
+  }
+
+  if (format === 'toml') {
+    return tomlParse(content);
   }
 
   return JSON.parse(content) as unknown;
@@ -672,13 +677,21 @@ function parseContent(content: string, format: 'json' | 'yaml'): unknown {
  */
 function serializeContent(
   data: unknown,
-  format: 'json' | 'yaml',
+  format: 'json' | 'yaml' | 'toml',
   pretty: boolean
 ): string {
   if (format === 'yaml') {
-    throw new Error(
-      'YAML format not yet supported. Please install a YAML parser library and configure it.'
-    );
+    return yamlDump(data, { indent: pretty ? 2 : 0, lineWidth: pretty ? 80 : -1 });
+  }
+
+  if (format === 'toml') {
+    // TOML requires root to be a table (object), not an array or primitive
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      throw new Error(
+        'TOML format requires data to be a non-null object (not an array or primitive)'
+      );
+    }
+    return tomlStringify(data as Record<string, unknown>);
   }
 
   return pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data);

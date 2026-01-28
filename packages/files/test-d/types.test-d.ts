@@ -1,56 +1,68 @@
 import { expectType, expectAssignable } from 'tsd';
 import type { MigrationGraph, MigrationPath } from '@migrex/core';
 import {
-  loadConfig,
-  saveConfig,
-  watchConfig,
+  loadVersionedFile,
+  saveVersionedFile,
+  watchVersionedFile,
   diffVersions,
-  ConfigFileError,
-  type LoadConfigOptions,
-  type LoadConfigResult,
-  type SaveConfigOptions,
-  type WatchConfigOptions,
-  type ConfigWatcher,
+  VersionedFileError,
+  type LoadOptions,
+  type LoadResult,
+  type SaveOptions,
+  type WatchOptions,
+  type FileWatcher,
   type VersionDiff,
 } from '@migrex/files';
 
-// Verify LoadConfigOptions interface
-const loadOptions: LoadConfigOptions = {
+// Verify LoadOptions interface
+const loadOptions: LoadOptions = {
   targetVersion: '2.0.0',
   format: 'json',
 };
-expectAssignable<LoadConfigOptions>(loadOptions);
+expectAssignable<LoadOptions>(loadOptions);
 
 // Verify optional format values
-const loadOptionsWithYaml: LoadConfigOptions = {
+const loadOptionsWithYaml: LoadOptions = {
   format: 'yaml',
 };
-expectAssignable<LoadConfigOptions>(loadOptionsWithYaml);
+expectAssignable<LoadOptions>(loadOptionsWithYaml);
 
-// Verify SaveConfigOptions interface
-const saveOptions: SaveConfigOptions = {
+// Verify TOML format support
+const loadOptionsWithToml: LoadOptions = {
+  format: 'toml',
+};
+expectAssignable<LoadOptions>(loadOptionsWithToml);
+
+// Verify SaveOptions interface
+const saveOptions: SaveOptions = {
   version: '1.0.0',
   format: 'json',
   pretty: true,
 };
-expectAssignable<SaveConfigOptions>(saveOptions);
+expectAssignable<SaveOptions>(saveOptions);
 
-// Verify WatchConfigOptions interface
-const watchOptions: WatchConfigOptions = {
+// Verify SaveOptions with TOML format
+const saveOptionsToml: SaveOptions = {
+  format: 'toml',
+};
+expectAssignable<SaveOptions>(saveOptionsToml);
+
+// Verify WatchOptions interface
+const watchOptions: WatchOptions = {
   targetVersion: '2.0.0',
   debounceMs: 100,
-  onUpdate: (_config: LoadConfigResult<unknown>) => {},
+  onUpdate: (_result: LoadResult<unknown>) => {},
   onError: (_error: Error) => {},
 };
-expectAssignable<WatchConfigOptions>(watchOptions);
+expectAssignable<WatchOptions>(watchOptions);
 
-// Verify LoadConfigResult structure
+// Verify LoadResult structure
 interface TestConfig {
   name: string;
   port: number;
 }
 
-const loadResult: LoadConfigResult<TestConfig> = {
+const loadResult: LoadResult<TestConfig> = {
   data: { name: 'test', port: 3000 },
   sourceVersion: '1.0.0',
   targetVersion: '2.0.0',
@@ -62,7 +74,7 @@ expectType<string>(loadResult.targetVersion);
 expectType<boolean>(loadResult.wasUpgraded);
 
 // Verify optional migrationPath
-const loadResultWithPath: LoadConfigResult<TestConfig> = {
+const loadResultWithPath: LoadResult<TestConfig> = {
   data: { name: 'test', port: 3000 },
   sourceVersion: '1.0.0',
   targetVersion: '2.0.0',
@@ -85,32 +97,32 @@ expectType<string[]>(versionDiff.addedFields);
 expectType<string[]>(versionDiff.removedFields);
 expectType<string[]>(versionDiff.modifiedFields);
 
-// Verify ConfigFileError is a proper Error subclass
-const configError = new ConfigFileError('test message', '/path/to/file');
-expectAssignable<Error>(configError);
-expectType<string>(configError.filePath);
-expectType<string>(configError.message);
+// Verify VersionedFileError is a proper Error subclass
+const fileError = new VersionedFileError('test message', '/path/to/file');
+expectAssignable<Error>(fileError);
+expectType<string>(fileError.filePath);
+expectType<string>(fileError.message);
 
-// Verify ConfigWatcher interface
-const watcher: ConfigWatcher = {
+// Verify FileWatcher interface
+const watcher: FileWatcher = {
   stop: () => {},
 };
-expectType<ConfigWatcher>(watcher);
+expectType<FileWatcher>(watcher);
 
 // Verify function return types with mock graph
 declare const mockGraph: MigrationGraph;
 
-// loadConfig returns Promise<LoadConfigResult<T>>
-const loadPromise = loadConfig<TestConfig>(mockGraph, './config.json');
-expectType<Promise<LoadConfigResult<TestConfig>>>(loadPromise);
+// loadVersionedFile returns Promise<LoadResult<T>>
+const loadPromise = loadVersionedFile<TestConfig>(mockGraph, './config.json');
+expectType<Promise<LoadResult<TestConfig>>>(loadPromise);
 
-// saveConfig returns Promise<void>
-const savePromise = saveConfig(mockGraph, './config.json', { name: 'test' });
+// saveVersionedFile returns Promise<void>
+const savePromise = saveVersionedFile(mockGraph, './config.json', { name: 'test' });
 expectType<Promise<void>>(savePromise);
 
-// watchConfig returns ConfigWatcher
-const watchHandle = watchConfig(mockGraph, './config.json');
-expectType<ConfigWatcher>(watchHandle);
+// watchVersionedFile returns FileWatcher
+const watchHandle = watchVersionedFile(mockGraph, './config.json');
+expectType<FileWatcher>(watchHandle);
 
 // diffVersions returns VersionDiff
 const diff = diffVersions(mockGraph, '1.0.0', '2.0.0');

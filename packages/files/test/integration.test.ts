@@ -305,3 +305,105 @@ describe('Integration: Full workflow', () => {
     expect(result.data).toEqual(originalConfig);
   });
 });
+
+describe('Integration: YAML workflow', () => {
+  it('should handle complete lifecycle: save YAML v1 -> load as v3', async () => {
+    // Set up graph
+    const graph = createMigrationGraph({
+      id: 'app-config',
+      versionStrategy: semverStrategy,
+    });
+
+    graph.registerSchema(schemaV1);
+    graph.registerSchema(schemaV2);
+    graph.registerSchema(schemaV3);
+    graph.registerMigration(migrationV1toV2);
+    graph.registerMigration(migrationV2toV3);
+
+    const yamlPath = join(testDir, 'app.config.yaml');
+
+    // Save v1 config as YAML
+    const v1Config: V1AppConfig = {
+      version: '1.0.0',
+      name: 'YAML Integration Test',
+      port: 3000,
+    };
+    await saveVersionedFile(graph, yamlPath, v1Config);
+
+    // Load and auto-migrate to v3
+    const result = await loadVersionedFile<V3AppConfig>(graph, yamlPath, {
+      targetVersion: '3.0.0',
+    });
+
+    // Verify migration occurred
+    expect(result.wasUpgraded).toBe(true);
+    expect(result.sourceVersion).toBe('1.0.0');
+    expect(result.targetVersion).toBe('3.0.0');
+    expect(result.migrationPath?.steps).toHaveLength(2);
+
+    // Verify data is correct
+    expect(result.data).toEqual({
+      version: '3.0.0',
+      name: 'YAML Integration Test',
+      server: {
+        port: 3000,
+        host: 'localhost',
+      },
+      features: {
+        auth: true,
+        logging: true,
+      },
+    });
+  });
+});
+
+describe('Integration: TOML workflow', () => {
+  it('should handle complete lifecycle: save TOML v1 -> load as v3', async () => {
+    // Set up graph
+    const graph = createMigrationGraph({
+      id: 'app-config',
+      versionStrategy: semverStrategy,
+    });
+
+    graph.registerSchema(schemaV1);
+    graph.registerSchema(schemaV2);
+    graph.registerSchema(schemaV3);
+    graph.registerMigration(migrationV1toV2);
+    graph.registerMigration(migrationV2toV3);
+
+    const tomlPath = join(testDir, 'app.config.toml');
+
+    // Save v1 config as TOML
+    const v1Config: V1AppConfig = {
+      version: '1.0.0',
+      name: 'TOML Integration Test',
+      port: 3000,
+    };
+    await saveVersionedFile(graph, tomlPath, v1Config);
+
+    // Load and auto-migrate to v3
+    const result = await loadVersionedFile<V3AppConfig>(graph, tomlPath, {
+      targetVersion: '3.0.0',
+    });
+
+    // Verify migration occurred
+    expect(result.wasUpgraded).toBe(true);
+    expect(result.sourceVersion).toBe('1.0.0');
+    expect(result.targetVersion).toBe('3.0.0');
+    expect(result.migrationPath?.steps).toHaveLength(2);
+
+    // Verify data is correct
+    expect(result.data).toEqual({
+      version: '3.0.0',
+      name: 'TOML Integration Test',
+      server: {
+        port: 3000,
+        host: 'localhost',
+      },
+      features: {
+        auth: true,
+        logging: true,
+      },
+    });
+  });
+});

@@ -301,22 +301,85 @@ describe('loadVersionedFile', () => {
       }
     });
 
-    it('should throw error for YAML files (not yet supported)', async () => {
+    it('should load a valid YAML config file', async () => {
       const graph = createTestGraph();
       const yamlPath = join(testDir, 'config.yaml');
-      await writeFile(yamlPath, 'version: 1.0.0\nappName: TestApp\n', 'utf-8');
-
-      await expect(loadVersionedFile(graph, yamlPath)).rejects.toThrowError(
-        VersionedFileError
+      await writeFile(
+        yamlPath,
+        'version: "2.0.0"\nappName: YamlApp\nport: 8080\n',
+        'utf-8'
       );
 
-      try {
-        await loadVersionedFile(graph, yamlPath);
-      } catch (error) {
-        expect(error).toBeInstanceOf(VersionedFileError);
-        expect((error as Error).message).toContain('Failed to parse');
-        expect((error as Error).message).toContain('YAML');
-      }
+      const result = await loadVersionedFile<V2Config>(graph, yamlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data.appName).toBe('YamlApp');
+      expect(result.data.port).toBe(8080);
+    });
+
+    it('should load and migrate YAML config to target version', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'config.yml');
+      await writeFile(yamlPath, 'version: "1.0.0"\nappName: YamlApp\n', 'utf-8');
+
+      const result = await loadVersionedFile<V2Config>(graph, yamlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasUpgraded).toBe(true);
+    });
+
+    it('should throw VersionedFileError for invalid YAML syntax', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'invalid.yaml');
+      await writeFile(yamlPath, 'version: [invalid yaml', 'utf-8');
+
+      await expect(loadVersionedFile(graph, yamlPath)).rejects.toThrow(
+        VersionedFileError
+      );
+    });
+
+    it('should load a valid TOML config file', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'config.toml');
+      await writeFile(
+        tomlPath,
+        'version = "2.0.0"\nappName = "TomlApp"\nport = 8080\n',
+        'utf-8'
+      );
+
+      const result = await loadVersionedFile<V2Config>(graph, tomlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data.appName).toBe('TomlApp');
+    });
+
+    it('should load and migrate TOML config to target version', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'config.toml');
+      await writeFile(
+        tomlPath,
+        'version = "1.0.0"\nappName = "TomlApp"\n',
+        'utf-8'
+      );
+
+      const result = await loadVersionedFile<V2Config>(graph, tomlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasUpgraded).toBe(true);
+    });
+
+    it('should throw VersionedFileError for invalid TOML syntax', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'invalid.toml');
+      await writeFile(tomlPath, 'version = [invalid', 'utf-8');
+
+      await expect(loadVersionedFile(graph, tomlPath)).rejects.toThrow(
+        VersionedFileError
+      );
     });
   });
 
@@ -461,14 +524,89 @@ describe('saveVersionedFile', () => {
       }
     });
 
-    it('should throw error for YAML files (not yet supported)', async () => {
+    it('should save config as YAML', async () => {
       const graph = createTestGraph();
       const yamlPath = join(testDir, 'config.yaml');
-      const config = { version: '1.0.0', appName: 'TestApp' };
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'YamlApp',
+        port: 8080,
+      };
 
-      await expect(
-        saveVersionedFile(graph, yamlPath, config)
-      ).rejects.toThrowError(/YAML format not yet supported/);
+      await saveVersionedFile(graph, yamlPath, config);
+
+      const content = await readFile(yamlPath, 'utf-8');
+      expect(content).toContain('version:');
+      expect(content).toContain('2.0.0');
+      expect(content).toContain('appName:');
+      expect(content).toContain('YamlApp');
+    });
+
+    it('should round-trip YAML preserving data', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'roundtrip.yaml');
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'RoundTrip',
+        port: 9000,
+      };
+
+      await saveVersionedFile(graph, yamlPath, config);
+      const result = await loadVersionedFile<V2Config>(graph, yamlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data).toEqual(config);
+    });
+
+    it('should save config as TOML', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'config.toml');
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'TomlApp',
+        port: 8080,
+      };
+
+      await saveVersionedFile(graph, tomlPath, config);
+
+      const content = await readFile(tomlPath, 'utf-8');
+      expect(content).toContain('version = "2.0.0"');
+      expect(content).toContain('appName = "TomlApp"');
+    });
+
+    it('should round-trip TOML preserving data', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'roundtrip.toml');
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'RoundTrip',
+        port: 9000,
+      };
+
+      await saveVersionedFile(graph, tomlPath, config);
+      const result = await loadVersionedFile<V2Config>(graph, tomlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data).toEqual(config);
+    });
+
+    it('should handle arrays by wrapping them with version for TOML', async () => {
+      // Note: saveVersionedFile wraps non-object data with { version, data }
+      // so raw arrays are never passed directly to TOML stringify.
+      // This test verifies the wrapping behavior works correctly.
+      const graph = createMigrationGraph({
+        id: 'empty-graph',
+        versionStrategy: semverStrategy,
+      });
+      const tomlPath = join(testDir, 'wrapped.toml');
+
+      await saveVersionedFile(graph, tomlPath, ['array', 'data'], { version: '1.0.0' });
+
+      const content = await readFile(tomlPath, 'utf-8');
+      expect(content).toContain('version = "1.0.0"');
+      expect(content).toContain('data');
     });
   });
 
@@ -660,14 +798,41 @@ describe('upgradeVersionedFile', () => {
       ).rejects.toThrowError(VersionedFileError);
     });
 
-    it('should throw error for YAML files (not yet supported)', async () => {
+    it('should upgrade YAML file in place', async () => {
       const graph = createTestGraph();
       const yamlPath = join(testDir, 'config.yaml');
-      await writeFile(yamlPath, 'version: 1.0.0\nappName: TestApp\n', 'utf-8');
-
-      await expect(upgradeVersionedFile(graph, yamlPath)).rejects.toThrowError(
-        VersionedFileError
+      await writeFile(
+        yamlPath,
+        'version: "1.0.0"\nappName: YamlApp\n',
+        'utf-8'
       );
+
+      const result = await upgradeVersionedFile(graph, yamlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasMigrated).toBe(true);
+      const content = await readFile(yamlPath, 'utf-8');
+      expect(content).toContain('version:');
+      expect(content).toContain('2.0.0');
+    });
+
+    it('should upgrade TOML file in place', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'upgrade.toml');
+      await writeFile(
+        tomlPath,
+        'version = "1.0.0"\nappName = "TomlApp"\n',
+        'utf-8'
+      );
+
+      const result = await upgradeVersionedFile(graph, tomlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasMigrated).toBe(true);
+      const content = await readFile(tomlPath, 'utf-8');
+      expect(content).toContain('version = "2.0.0"');
     });
   });
 

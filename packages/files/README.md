@@ -14,7 +14,7 @@ npm install @migrex/files @migrex/core
 - **Save**: Save data with version information
 - **Upgrade**: Upgrade files in place to a target version
 - **Watch**: Watch files for changes and automatically reload/migrate
-- **Format detection**: Automatic JSON format detection (YAML coming soon)
+- **Format support**: JSON, YAML (.yaml/.yml), and TOML (.toml) with automatic format detection
 - **Type-safe**: Full TypeScript support with strict typing
 
 ## Usage
@@ -200,7 +200,7 @@ Compare two schema versions.
 ```typescript
 interface LoadOptions {
   targetVersion?: string;  // Target version to migrate to
-  format?: 'json' | 'yaml';  // File format (default: auto-detect)
+  format?: 'json' | 'yaml' | 'toml';  // File format (default: auto-detect)
 }
 ```
 
@@ -221,7 +221,7 @@ interface LoadResult<T> {
 ```typescript
 interface SaveOptions {
   version?: string;  // Version to set (default: auto-detect)
-  format?: 'json' | 'yaml';  // File format (default: auto-detect)
+  format?: 'json' | 'yaml' | 'toml';  // File format (default: auto-detect)
   pretty?: boolean;  // Pretty-print output (default: true)
 }
 ```
@@ -231,7 +231,7 @@ interface SaveOptions {
 ```typescript
 interface UpgradeOptions {
   targetVersion?: string;  // Target version to upgrade to
-  format?: 'json' | 'yaml';  // File format (default: auto-detect)
+  format?: 'json' | 'yaml' | 'toml';  // File format (default: auto-detect)
   pretty?: boolean;  // Pretty-print output (default: true)
   skipIfCurrent?: boolean;  // Skip write if already at target (default: true)
 }
@@ -307,9 +307,9 @@ try {
 
 ## Format Support
 
-### JSON (Supported)
+The package supports JSON, YAML, and TOML file formats with automatic detection based on file extension.
 
-JSON format is fully supported out of the box:
+### JSON
 
 ```json
 {
@@ -319,9 +319,51 @@ JSON format is fully supported out of the box:
 }
 ```
 
-### YAML (Coming Soon)
+### YAML
 
-YAML support will be added in a future release. For now, attempting to load YAML files will throw an error.
+Supports both `.yaml` and `.yml` extensions:
+
+```yaml
+version: "2.0.0"
+name: My App
+port: 3000
+```
+
+### TOML
+
+```toml
+version = "2.0.0"
+name = "My App"
+port = 3000
+```
+
+### Explicit Format Specification
+
+By default, format is detected from file extension. You can explicitly specify the format:
+
+```typescript
+// Load YAML file explicitly
+const result = await loadVersionedFile(graph, './data.yaml', {
+  format: 'yaml'
+});
+
+// Save as TOML
+await saveVersionedFile(graph, './config.toml', data, {
+  format: 'toml'
+});
+
+// Upgrade TOML file
+await upgradeVersionedFile(graph, './settings.toml', {
+  format: 'toml',
+  targetVersion: '2.0.0'
+});
+```
+
+### Format-Specific Behavior
+
+- **JSON**: Supports pretty-printing via the `pretty` option (default: true)
+- **YAML**: Uses safe parsing mode (JSON schema) to prevent type coercion issues
+- **TOML**: Requires data to be an object (arrays and primitives at root level are not supported)
 
 ## License
 

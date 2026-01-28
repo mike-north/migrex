@@ -17,7 +17,7 @@ export interface FileWatcher {
 
 // @public
 export interface LoadOptions {
-    format?: 'json' | 'yaml';
+    format?: 'json' | 'yaml' | 'toml';
     targetVersion?: string;
 }
 
@@ -35,7 +35,7 @@ export function loadVersionedFile<T>(graph: MigrationGraph, filePath: string, op
 
 // @public
 export interface SaveOptions {
-    format?: 'json' | 'yaml';
+    format?: 'json' | 'yaml' | 'toml';
     pretty?: boolean;
     version?: string;
 }
@@ -45,7 +45,7 @@ export function saveVersionedFile(graph: MigrationGraph, filePath: string, data:
 
 // @public
 export interface UpgradeOptions {
-    format?: 'json' | 'yaml';
+    format?: 'json' | 'yaml' | 'toml';
     pretty?: boolean;
     skipIfCurrent?: boolean;
     targetVersion?: string;
