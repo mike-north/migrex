@@ -19,6 +19,7 @@
     "dx-improvements",
     "friendly-files-rename",
     "strong-keys-hang",
+    "sync-apis",
     "yaml-toml-support"
   ]
 }
