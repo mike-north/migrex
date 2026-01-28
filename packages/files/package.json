@@ -2,6 +2,10 @@
   "name": "@migrex/files",
   "description": "File-based configuration integration for migrex",
   "version": "1.0.0-alpha.2",
+  "dependencies": {
+    "js-yaml": "^4.1.1",
+    "smol-toml": "^1.6.0"
+  },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.48.0",
     "@migrex/core": "workspace:*",
@@ -47,9 +51,5 @@
     "test:watch": "vitest"
   },
   "type": "module",
-  "types": "./dist/files.d.ts",
-  "dependencies": {
-    "js-yaml": "^4.1.1",
-    "smol-toml": "^1.6.0"
-  }
+  "types": "./dist/files.d.ts"
 }
