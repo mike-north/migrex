@@ -4,12 +4,16 @@ import { semverStrategy } from '@migrex/core';
 import type {
   VersionedSchema,
   ReversibleMigration,
+  AsyncReversibleMigration,
   MigrationContext,
 } from '@migrex/core';
 import {
   loadVersionedFile,
+  loadVersionedFileSync,
   saveVersionedFile,
+  saveVersionedFileSync,
   upgradeVersionedFile,
+  upgradeVersionedFileSync,
   watchVersionedFile,
   diffVersions,
   VersionedFileError,
@@ -1130,5 +1134,416 @@ describe('VersionedFileError', () => {
   it('should be instanceof Error', () => {
     const error = new VersionedFileError('Test', '/path');
     expect(error).toBeInstanceOf(Error);
+  });
+});
+
+// ============================================================================
+// Synchronous API Tests
+// ============================================================================
+
+// Async migration for testing async detection
+const asyncMigrationV1toV2: AsyncReversibleMigration<V1Config, V2Config> = {
+  fromVersion: '1.0.0',
+  toVersion: '2.0.0',
+  up: async (data: V1Config, _ctx: MigrationContext) => {
+    // Simulate async operation
+    await Promise.resolve();
+    return {
+      version: '2.0.0',
+      appName: data.appName,
+      port: 3000,
+    };
+  },
+  down: async (data: V2Config, _ctx: MigrationContext) => {
+    await Promise.resolve();
+    return {
+      version: '1.0.0',
+      appName: data.appName,
+    };
+  },
+};
+
+function createTestGraphWithAsyncMigration() {
+  const graph = createMigrationGraph({
+    id: 'test-config-async',
+    versionStrategy: semverStrategy,
+  });
+
+  graph.registerSchema(schemaV1);
+  graph.registerSchema(schemaV2);
+  graph.registerSchema(schemaV3);
+  graph.registerMigration(asyncMigrationV1toV2);
+  graph.registerMigration(migrationV2toV3);
+
+  return graph;
+}
+
+describe('loadVersionedFileSync', () => {
+  describe('positive cases', () => {
+    it('should load a valid config file without migration', async () => {
+      const graph = createTestGraph();
+      const configData: V2Config = { version: '2.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = loadVersionedFileSync<V2Config>(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data).toEqual(configData);
+      expect(result.sourceVersion).toBe('2.0.0');
+      expect(result.targetVersion).toBe('2.0.0');
+      expect(result.wasUpgraded).toBe(false);
+    });
+
+    it('should load and migrate config synchronously', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = loadVersionedFileSync<V2Config>(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data.version).toBe('2.0.0');
+      expect(result.data.appName).toBe('TestApp');
+      expect(result.data.port).toBe(3000);
+      expect(result.sourceVersion).toBe('1.0.0');
+      expect(result.targetVersion).toBe('2.0.0');
+      expect(result.wasUpgraded).toBe(true);
+    });
+
+    it('should migrate to latest version when targetVersion not specified', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = loadVersionedFileSync<V3Config>(graph, testFilePath);
+
+      expect(result.data.version).toBe('3.0.0');
+      expect(result.data.name).toBe('TestApp');
+      expect(result.wasUpgraded).toBe(true);
+    });
+
+    it('should handle multi-step migrations synchronously', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'MyApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = loadVersionedFileSync<V3Config>(graph, testFilePath, {
+        targetVersion: '3.0.0',
+      });
+
+      expect(result.data.version).toBe('3.0.0');
+      expect(result.data.name).toBe('MyApp');
+      expect(result.data.server?.port).toBe(3000);
+      expect(result.migrationPath?.steps).toHaveLength(2);
+    });
+
+    it('should load YAML file synchronously', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'config.yaml');
+      await writeFile(
+        yamlPath,
+        'version: "2.0.0"\nappName: YamlApp\nport: 8080\n',
+        'utf-8'
+      );
+
+      const result = loadVersionedFileSync<V2Config>(graph, yamlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data.appName).toBe('YamlApp');
+      expect(result.data.port).toBe(8080);
+    });
+
+    it('should load TOML file synchronously', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'config.toml');
+      await writeFile(
+        tomlPath,
+        'version = "2.0.0"\nappName = "TomlApp"\nport = 8080\n',
+        'utf-8'
+      );
+
+      const result = loadVersionedFileSync<V2Config>(graph, tomlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.data.appName).toBe('TomlApp');
+    });
+  });
+
+  describe('negative cases', () => {
+    it('should throw VersionedFileError when file does not exist', () => {
+      const graph = createTestGraph();
+      const nonExistentPath = join(testDir, 'nonexistent.json');
+
+      expect(() => loadVersionedFileSync(graph, nonExistentPath)).toThrowError(
+        VersionedFileError
+      );
+    });
+
+    it('should throw VersionedFileError when JSON is invalid', async () => {
+      const graph = createTestGraph();
+      await writeFile(testFilePath, '{ invalid json }', 'utf-8');
+
+      expect(() => loadVersionedFileSync(graph, testFilePath)).toThrowError(
+        VersionedFileError
+      );
+    });
+
+    it('should throw VersionedFileError when version field is missing', async () => {
+      const graph = createTestGraph();
+      await writeFile(
+        testFilePath,
+        JSON.stringify({ appName: 'TestApp' }),
+        'utf-8'
+      );
+
+      try {
+        loadVersionedFileSync(graph, testFilePath);
+      } catch (error) {
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain(
+          "missing 'version' field"
+        );
+      }
+    });
+
+    it('should throw VersionedFileError when migration path contains async migrations', async () => {
+      const graph = createTestGraphWithAsyncMigration();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      try {
+        loadVersionedFileSync(graph, testFilePath, { targetVersion: '2.0.0' });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain(
+          'Cannot use sync API'
+        );
+        expect((error as VersionedFileError).message).toContain('async');
+      }
+    });
+  });
+});
+
+describe('saveVersionedFileSync', () => {
+  describe('positive cases', () => {
+    it('should save config synchronously', async () => {
+      const graph = createTestGraph();
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'TestApp',
+        port: 8080,
+      };
+
+      saveVersionedFileSync(graph, testFilePath, config, { version: '2.0.0' });
+
+      const content = await readFile(testFilePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(parsed).toEqual(config);
+    });
+
+    it('should save YAML file synchronously', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'config.yaml');
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'YamlApp',
+        port: 8080,
+      };
+
+      saveVersionedFileSync(graph, yamlPath, config);
+
+      const content = await readFile(yamlPath, 'utf-8');
+      expect(content).toContain('version:');
+      expect(content).toContain('YamlApp');
+    });
+
+    it('should save TOML file synchronously', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'config.toml');
+      const config: V2Config = {
+        version: '2.0.0',
+        appName: 'TomlApp',
+        port: 8080,
+      };
+
+      saveVersionedFileSync(graph, tomlPath, config);
+
+      const content = await readFile(tomlPath, 'utf-8');
+      expect(content).toContain('version = "2.0.0"');
+      expect(content).toContain('appName = "TomlApp"');
+    });
+
+    it('should pretty-print by default', async () => {
+      const graph = createTestGraph();
+      const config: V2Config = { version: '2.0.0', appName: 'TestApp' };
+
+      saveVersionedFileSync(graph, testFilePath, config);
+
+      const content = await readFile(testFilePath, 'utf-8');
+      expect(content).toContain('\n');
+      expect(content).toContain('  ');
+    });
+
+    it('should save compact JSON when pretty is false', async () => {
+      const graph = createTestGraph();
+      const config: V2Config = { version: '2.0.0', appName: 'TestApp' };
+
+      saveVersionedFileSync(graph, testFilePath, config, { pretty: false });
+
+      const content = await readFile(testFilePath, 'utf-8');
+      expect(content).not.toContain('\n');
+    });
+  });
+
+  describe('negative cases', () => {
+    it('should throw VersionedFileError when validation fails', () => {
+      const graph = createTestGraph();
+      const invalidConfig = { version: '2.0.0', wrongField: 'value' };
+
+      expect(() =>
+        saveVersionedFileSync(graph, testFilePath, invalidConfig, {
+          version: '2.0.0',
+        })
+      ).toThrowError(VersionedFileError);
+    });
+
+    it('should throw VersionedFileError when write fails', () => {
+      const graph = createTestGraph();
+      const config: V2Config = { version: '2.0.0', appName: 'TestApp' };
+      const invalidPath = join('/nonexistent/directory', 'config.json');
+
+      expect(() =>
+        saveVersionedFileSync(graph, invalidPath, config)
+      ).toThrowError(VersionedFileError);
+    });
+  });
+});
+
+describe('upgradeVersionedFileSync', () => {
+  describe('positive cases', () => {
+    it('should upgrade config synchronously', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = upgradeVersionedFileSync(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.sourceVersion).toBe('1.0.0');
+      expect(result.targetVersion).toBe('2.0.0');
+      expect(result.wasMigrated).toBe(true);
+      expect(result.wasWritten).toBe(true);
+
+      const content = await readFile(testFilePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(parsed.version).toBe('2.0.0');
+    });
+
+    it('should upgrade to latest version when targetVersion not specified', async () => {
+      const graph = createTestGraph();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = upgradeVersionedFileSync(graph, testFilePath);
+
+      expect(result.targetVersion).toBe('3.0.0');
+      expect(result.wasMigrated).toBe(true);
+    });
+
+    it('should skip writing when already at target version', async () => {
+      const graph = createTestGraph();
+      const configData: V2Config = { version: '2.0.0', appName: 'TestApp', port: 8080 };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = upgradeVersionedFileSync(graph, testFilePath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasMigrated).toBe(false);
+      expect(result.wasWritten).toBe(false);
+    });
+
+    it('should write when already at target version if skipIfCurrent: false', async () => {
+      const graph = createTestGraph();
+      const configData: V2Config = { version: '2.0.0', appName: 'TestApp', port: 8080 };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      const result = upgradeVersionedFileSync(graph, testFilePath, {
+        targetVersion: '2.0.0',
+        skipIfCurrent: false,
+      });
+
+      expect(result.wasMigrated).toBe(false);
+      expect(result.wasWritten).toBe(true);
+    });
+
+    it('should upgrade YAML file in place', async () => {
+      const graph = createTestGraph();
+      const yamlPath = join(testDir, 'config.yaml');
+      await writeFile(
+        yamlPath,
+        'version: "1.0.0"\nappName: YamlApp\n',
+        'utf-8'
+      );
+
+      const result = upgradeVersionedFileSync(graph, yamlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasMigrated).toBe(true);
+      const content = await readFile(yamlPath, 'utf-8');
+      expect(content).toContain('2.0.0');
+    });
+
+    it('should upgrade TOML file in place', async () => {
+      const graph = createTestGraph();
+      const tomlPath = join(testDir, 'config.toml');
+      await writeFile(
+        tomlPath,
+        'version = "1.0.0"\nappName = "TomlApp"\n',
+        'utf-8'
+      );
+
+      const result = upgradeVersionedFileSync(graph, tomlPath, {
+        targetVersion: '2.0.0',
+      });
+
+      expect(result.wasMigrated).toBe(true);
+      const content = await readFile(tomlPath, 'utf-8');
+      expect(content).toContain('version = "2.0.0"');
+    });
+  });
+
+  describe('negative cases', () => {
+    it('should throw VersionedFileError when file does not exist', () => {
+      const graph = createTestGraph();
+      const nonExistentPath = join(testDir, 'nonexistent.json');
+
+      expect(() =>
+        upgradeVersionedFileSync(graph, nonExistentPath)
+      ).toThrowError(VersionedFileError);
+    });
+
+    it('should throw VersionedFileError when migration path contains async migrations', async () => {
+      const graph = createTestGraphWithAsyncMigration();
+      const configData: V1Config = { version: '1.0.0', appName: 'TestApp' };
+      await writeFile(testFilePath, JSON.stringify(configData, null, 2), 'utf-8');
+
+      try {
+        upgradeVersionedFileSync(graph, testFilePath, { targetVersion: '2.0.0' });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(VersionedFileError);
+        expect((error as VersionedFileError).message).toContain(
+          'Cannot use sync API'
+        );
+      }
+    });
   });
 });

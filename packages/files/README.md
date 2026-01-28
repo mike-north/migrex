@@ -14,6 +14,7 @@ npm install @migrex/files @migrex/core
 - **Save**: Save data with version information
 - **Upgrade**: Upgrade files in place to a target version
 - **Watch**: Watch files for changes and automatically reload/migrate
+- **Sync APIs**: Synchronous versions of load, save, and upgrade for blocking scenarios
 - **Format support**: JSON, YAML (.yaml/.yml), and TOML (.toml) with automatic format detection
 - **Type-safe**: Full TypeScript support with strict typing
 
@@ -119,6 +120,35 @@ console.log('Removed fields:', diff.removedFields);
 console.log('Modified fields:', diff.modifiedFields);
 ```
 
+### Synchronous APIs
+
+For scenarios where blocking behavior is acceptable (CLI tools, scripts, tests), synchronous versions are available:
+
+```typescript
+import {
+  loadVersionedFileSync,
+  saveVersionedFileSync,
+  upgradeVersionedFileSync
+} from '@migrex/files';
+
+// Synchronous load and migrate
+const result = loadVersionedFileSync(graph, './data.json', {
+  targetVersion: '2.0.0'
+});
+
+// Synchronous save
+saveVersionedFileSync(graph, './data.json', {
+  version: '2.0.0',
+  name: 'My App',
+  port: 3000,
+});
+
+// Synchronous upgrade
+const upgradeResult = upgradeVersionedFileSync(graph, './data.json');
+```
+
+> **Note**: Sync APIs will throw a `VersionedFileError` if the migration path contains any async migrations. Use the async versions when your migrations may be asynchronous.
+
 ## API
 
 ### `loadVersionedFile<T>(graph, filePath, options?)`
@@ -178,6 +208,51 @@ Watch a versioned file for changes.
 - `options?: WatchOptions` - Watch options
 
 **Returns:** `FileWatcher` - Watcher with `stop()` method
+
+### `loadVersionedFileSync<T>(graph, filePath, options?)`
+
+Synchronously load and auto-migrate a versioned file.
+
+**Parameters:**
+- `graph: MigrationGraph` - Migration graph with schemas and migrations
+- `filePath: string` - Path to file
+- `options?: LoadOptions` - Loading options
+
+**Returns:** `LoadResult<T>`
+
+**Throws:**
+- `VersionedFileError` - If file cannot be read or parsed, or if migration path contains async migrations
+- `MigrationError` - If migration fails
+
+### `saveVersionedFileSync(graph, filePath, data, options?)`
+
+Synchronously save data to a versioned file.
+
+**Parameters:**
+- `graph: MigrationGraph` - Migration graph
+- `filePath: string` - Path to save file
+- `data: unknown` - Data to save
+- `options?: SaveOptions` - Save options
+
+**Returns:** `void`
+
+**Throws:**
+- `VersionedFileError` - If file cannot be written or validation fails
+
+### `upgradeVersionedFileSync(graph, filePath, options?)`
+
+Synchronously upgrade a versioned file in place to a target version.
+
+**Parameters:**
+- `graph: MigrationGraph` - Migration graph with schemas and migrations
+- `filePath: string` - Path to file
+- `options?: UpgradeOptions` - Upgrade options
+
+**Returns:** `UpgradeResult`
+
+**Throws:**
+- `VersionedFileError` - If file cannot be read, parsed, written, or if migration path contains async migrations
+- `MigrationError` - If migration fails
 
 ### `diffVersions(graph, fromVersion, toVersion)`
 
