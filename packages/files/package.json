@@ -1,7 +1,7 @@
 {
   "name": "@migrex/files",
   "description": "File-based configuration integration for migrex",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "dependencies": {
     "js-yaml": "^4.1.1",
     "smol-toml": "^1.6.0"

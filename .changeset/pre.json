@@ -18,6 +18,7 @@
     "dx-documentation-improvements",
     "dx-improvements",
     "friendly-files-rename",
-    "strong-keys-hang"
+    "strong-keys-hang",
+    "yaml-toml-support"
   ]
 }
