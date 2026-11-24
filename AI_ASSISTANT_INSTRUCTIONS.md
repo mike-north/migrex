@@ -74,7 +74,7 @@ npm install @migrex/core
 npm install @migrex/zod zod
 
 # Or with JSON Schema
-npm install @migrex/json-schema ajv
+npm install @migrex/json-schema
 
 # CLI tools
 npm install @migrex/cli

@@ -9,6 +9,7 @@ import {
   type JsonSchemaPluginOptions,
   type FromJsonSchemaOptions,
   type JSONSchema,
+  type JsonSchemaDraft,
 } from '@migrex/json-schema';
 
 // Verify JSONSchema type is exported (aliased from JSONSchema7)
@@ -24,7 +25,8 @@ expectAssignable<JSONSchema>(jsonSchema);
 
 // Verify JsonSchemaPluginOptions interface
 const pluginOptions: JsonSchemaPluginOptions = {
-  ajvOptions: { allErrors: true },
+  draft: '7',
+  allErrors: true,
   useFormats: true,
 };
 expectAssignable<JsonSchemaPluginOptions>(pluginOptions);
@@ -56,6 +58,9 @@ expectType<'json-schema'>(plugin.id);
 
 // Verify plugin.name is string
 expectType<string>(plugin.name);
+
+// Verify plugin.draft is a supported draft
+expectType<JsonSchemaDraft>(plugin.draft);
 
 // Verify defaultPlugin is exported
 expectType<JsonSchemaPlugin>(jsonSchemaPlugin);

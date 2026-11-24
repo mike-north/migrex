@@ -4,11 +4,9 @@
 
 ```ts
 
-import { Ajv } from 'ajv';
 import type { FieldSchema } from '@migrex/core';
 import type { JSONSchema7 as JSONSchema } from 'json-schema';
 import type { JSONSchema7Definition } from 'json-schema';
-import type { Options } from 'ajv';
 import type { ValidationResult } from '@migrex/core';
 import type { VersionedSchema } from '@migrex/core';
 
@@ -49,12 +47,14 @@ export interface FromJsonSchemaOptions<T> {
 export { JSONSchema }
 
 // @public
+export type JsonSchemaDraft = '4' | '7' | '2019-09' | '2020-12';
+
+// @public
 export interface JsonSchemaPlugin {
-    // Warning: (ae-forgotten-export) The symbol "AjvInstance" needs to be exported by the entry point index.d.ts
-    readonly ajv: AjvInstance;
     createFieldSchema(schema: JSONSchema, options?: {
         description?: string;
     }): FieldSchema;
+    readonly draft: JsonSchemaDraft;
     fromJsonSchema<T = unknown>(version: string, schema: JSONSchema, options?: FromJsonSchemaOptions<T>): VersionedSchema<T>;
     readonly id: 'json-schema';
     readonly name: string;
@@ -65,7 +65,8 @@ export const jsonSchemaPlugin: JsonSchemaPlugin;
 
 // @public
 export interface JsonSchemaPluginOptions {
-    ajvOptions?: Options;
+    allErrors?: boolean;
+    draft?: JsonSchemaDraft;
     useFormats?: boolean;
 }
 
