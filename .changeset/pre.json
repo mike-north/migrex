@@ -18,6 +18,7 @@
     "dx-documentation-improvements",
     "dx-improvements",
     "friendly-files-rename",
+    "json-schema-drop-ajv",
     "strong-keys-hang",
     "sync-apis",
     "yaml-toml-support"
