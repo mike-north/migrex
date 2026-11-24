@@ -323,7 +323,7 @@ Create a custom JSON Schema plugin with specific validator configuration.
 | `allErrors` | `boolean` | `true` | Report every error rather than stopping at the first |
 | `useFormats` | `boolean` | `true` | Check `format` keywords |
 
-Schemas are checked when compiled: draft-04 and draft-07 schemas against their meta-schema, and local `#/...` `$ref`s must resolve. An invalid schema throws from `fromJsonSchema` / `createFieldSchema`.
+Schemas are checked when compiled: draft-04 and draft-07 schemas against their meta-schema, and every `$ref` must resolve (remote schemas are not fetched). An invalid schema throws from `fromJsonSchema` / `createFieldSchema`.
 
 ### `createFieldSchema(schema, options?)`
 

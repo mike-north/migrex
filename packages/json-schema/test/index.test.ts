@@ -4,6 +4,7 @@ import {
   createFieldSchema,
   createJsonSchemaPlugin,
   jsonSchemaPlugin,
+  extendJsonSchema,
   type JSONSchema,
 } from '../src/index.js';
 
@@ -460,6 +461,92 @@ describe('Ajv compatibility', () => {
         properties: { a: { $ref: '#/definitions/missing' } },
       })
     ).toThrow(/does not resolve/);
+  });
+
+  it('should compile schemas with keywords set to undefined', () => {
+    const base: JSONSchema = {
+      type: 'object',
+      properties: { version: { const: '1.0.0' }, a: { type: 'string' } },
+      required: ['a'],
+    };
+    const extended = extendJsonSchema(base, '1.1.0', { removeRequired: ['a'] });
+    const schema = fromJsonSchema('1.1.0', extended);
+    expect(schema.schema({ version: '1.1.0' }).success).toBe(true);
+
+    expect(() =>
+      fromJsonSchema('1.0.0', { type: 'object', description: undefined } as JSONSchema)
+    ).not.toThrow();
+  });
+
+  it('should keep allOf indices stable when rewriting $ref siblings', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      definitions: {
+        b: { type: 'string' },
+        x: { $ref: '#/definitions/b', minLength: 2, allOf: [{ maxLength: 3 }] },
+      },
+      $ref: '#/definitions/x/allOf/0',
+    });
+
+    expect(schema.schema('abc').success).toBe(true);
+    const result = schema.schema('abcdef');
+    expect(result.success).toBe(false);
+    expect(result.errors![0].code).toBe('maxLength');
+  });
+
+  it('should reject unresolvable non-local $refs when they are compiled', () => {
+    expect(() => fromJsonSchema('1.0.0', { $ref: 'other.json' })).toThrow(/does not resolve/);
+    expect(() =>
+      fromJsonSchema('1.0.0', {
+        $id: 'https://example.com/root.json',
+        definitions: { a: { $id: 'a.json', type: 'string' } },
+        $ref: 'a.json',
+      })
+    ).not.toThrow();
+  });
+
+  it('should treat undefined properties on class instances as absent', () => {
+    class Point {
+      a = 'x';
+      b: string | undefined = undefined;
+    }
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { a: { type: 'string' }, b: { type: 'string' } },
+    });
+
+    const input = new Point();
+    const result = schema.schema(input);
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(input);
+  });
+
+  it('should reject non-finite numbers like Ajv', () => {
+    const schema = fromJsonSchema('1.0.0', { type: 'number' });
+    expect(schema.schema(1).success).toBe(true);
+    expect(schema.schema(Number.NaN).success).toBe(false);
+    expect(schema.schema(Number.POSITIVE_INFINITY).success).toBe(false);
+  });
+
+  it('should report a false tuple position as false, not additionalItems', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'array',
+      items: [false, {}],
+      additionalItems: false,
+    });
+
+    const result = schema.schema([1, 2, 3]);
+    expect(result.errors!.map((e) => [e.code, e.path.join('/')])).toEqual([
+      ['false', '0'],
+      ['additionalItems', '2'],
+    ]);
+  });
+
+  it('should not check meta-schema formats when formats are disabled', () => {
+    const schema = { $id: 'not a uri with spaces', type: 'string' } as JSONSchema;
+    expect(() =>
+      createJsonSchemaPlugin({ useFormats: false }).fromJsonSchema('1', schema)
+    ).not.toThrow();
+    expect(() => fromJsonSchema('1', schema)).toThrow(/Invalid JSON Schema/);
   });
 
   it('should strip formats reached through $ref outside definitions', () => {

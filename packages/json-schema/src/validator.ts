@@ -96,7 +96,10 @@ function deepCopy(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(deepCopy);
   if (!isPlainObject(value)) return value;
   const out: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value)) out[key] = deepCopy(child);
+  for (const [key, child] of Object.entries(value)) {
+    // A keyword set to undefined (e.g. `required: undefined`) means "absent", as in JSON.
+    if (child !== undefined) out[key] = deepCopy(child);
+  }
   return out;
 }
 
@@ -122,6 +125,7 @@ function prepareSchema(
 
     const out: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(node)) {
+      if (child === undefined) continue;
       if (options.stripFormats && key === 'format' && typeof child === 'string') continue;
       if (DATA_KEYWORDS.has(key)) out[key] = deepCopy(child);
       else if (SCHEMA_MAP_KEYWORDS.has(key)) out[key] = prepareMap(child);
@@ -135,7 +139,8 @@ function prepareSchema(
     ) {
       const { $ref, ...rest } = out;
       const allOf = Array.isArray(rest['allOf']) ? (rest['allOf'] as unknown[]) : [];
-      return { ...rest, allOf: [{ $ref }, ...allOf] };
+      // Append, so pointers into the existing allOf entries keep their indices.
+      return { ...rest, allOf: [...allOf, { $ref }] };
     }
     return out;
   };
@@ -151,59 +156,52 @@ function decodePointerSegment(segment: string): string {
   return segment.replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
-/** Collect `$ref` values and note whether any subschema changes the base URI. */
-function collectRefs(schema: unknown): { refs: string[]; hasNestedId: boolean } {
-  const refs: string[] = [];
-  let hasNestedId = false;
+function resolvePointer(root: unknown, location: string): unknown {
+  const pointer = location.startsWith('#') ? location.slice(1) : location;
+  if (pointer === '') return root;
+  let target: unknown = root;
+  for (const raw of pointer.split('/').slice(1)) {
+    const segment = decodePointerSegment(decodeURIComponent(raw));
+    if (Array.isArray(target)) target = target[Number(segment)];
+    else if (isPlainObject(target)) target = target[segment];
+    else return undefined;
+    if (target === undefined) return undefined;
+  }
+  return target;
+}
 
-  const visit = (node: unknown, isRoot: boolean): void => {
+/**
+ * Throw if any `$ref` in the prepared schema does not resolve.
+ * Runs after the validator has dereferenced the schema, so `$id` base URIs are honoured.
+ */
+function checkRefsResolve(prepared: unknown, validator: Validator): void {
+  const lookup = (validator as unknown as { lookup: Record<string, unknown> }).lookup;
+
+  const visit = (node: unknown): void => {
     if (Array.isArray(node)) {
-      node.forEach((child) => {
-        visit(child, false);
-      });
+      node.forEach(visit);
       return;
     }
     if (!isPlainObject(node)) return;
-    if (typeof node['$ref'] === 'string') refs.push(node['$ref']);
-    if (!isRoot && (typeof node['$id'] === 'string' || typeof node['id'] === 'string')) {
-      hasNestedId = true;
+    const annotated = node as { __absolute_ref__?: unknown; __absolute_recursive_ref__?: unknown };
+    for (const [ref, absolute] of [
+      [node['$ref'], annotated.__absolute_ref__],
+      [node['$recursiveRef'], annotated.__absolute_recursive_ref__],
+    ] as const) {
+      if (typeof ref !== 'string') continue;
+      const uri = typeof absolute === 'string' ? absolute : ref;
+      if (lookup[uri] === undefined) {
+        throw new Error(`Invalid JSON Schema: $ref "${ref}" does not resolve`);
+      }
     }
     for (const [key, child] of Object.entries(node)) {
       if (DATA_KEYWORDS.has(key)) continue;
-      if (SCHEMA_MAP_KEYWORDS.has(key) && isPlainObject(child)) {
-        Object.values(child).forEach((sub) => {
-          visit(sub, false);
-        });
-      } else {
-        visit(child, false);
-      }
+      if (SCHEMA_MAP_KEYWORDS.has(key) && isPlainObject(child)) Object.values(child).forEach(visit);
+      else visit(child);
     }
   };
 
-  visit(schema, true);
-  return { refs, hasNestedId };
-}
-
-/** Throw if a local JSON-pointer `$ref` (e.g. "#/definitions/x") does not resolve. */
-function checkLocalRefs(schema: unknown): void {
-  const { refs, hasNestedId } = collectRefs(schema);
-  // A nested $id changes what "#/..." means inside it; leave those to the validator.
-  if (hasNestedId) return;
-
-  for (const ref of refs) {
-    if (!ref.startsWith('#/')) continue;
-    let target: unknown = schema;
-    for (const raw of ref.slice(2).split('/')) {
-      const segment = decodePointerSegment(decodeURIComponent(raw));
-      if (Array.isArray(target)) target = target[Number(segment)];
-      else if (isPlainObject(target)) target = target[segment];
-      else target = undefined;
-      if (target === undefined) break;
-    }
-    if (target === undefined) {
-      throw new Error(`Invalid JSON Schema: $ref "${ref}" does not resolve`);
-    }
-  }
+  visit(prepared);
 }
 
 let draft04MetaValidator: Validator | undefined;
@@ -231,12 +229,20 @@ function metaValidatorFor(draft: JsonSchemaDraft): Validator | undefined {
 }
 
 /** Throw if the schema is not valid against its draft's meta-schema. */
-function checkAgainstMetaSchema(schema: unknown, draft: JsonSchemaDraft): void {
+function checkAgainstMetaSchema(
+  schema: unknown,
+  draft: JsonSchemaDraft,
+  ignoreFormats: boolean
+): void {
   const meta = metaValidatorFor(draft);
   if (!meta) return;
   const result = meta.validate(schema);
   if (result.valid) return;
-  const details = toValidationErrors(result.errors)
+  let errors = toValidationErrors(result.errors);
+  // With formats off, format keywords in the meta-schema (e.g. $id: uri-reference) don't apply.
+  if (ignoreFormats) errors = errors.filter((e) => e.code !== 'format');
+  if (errors.length === 0) return;
+  const details = errors
     .map((e) => `${e.path.length > 0 ? '/' + e.path.join('/') : '(root)'}: ${e.message}`)
     .join('; ');
   throw new Error(`Invalid JSON Schema: ${details}`);
@@ -302,7 +308,16 @@ function instanceLocationToPath(instanceLocation: string): string[] {
 /**
  * Convert validator output to migrex ValidationErrors, keeping the most specific errors.
  */
-function toValidationErrors(errors: OutputUnit[]): ValidationError[] {
+function toValidationErrors(errors: OutputUnit[], schemaRoot?: unknown): ValidationError[] {
+  // additionalItems only owns items past the tuple; a `false` inside the tuple is its own error.
+  const isTupleIndex = (owner: OutputUnit, index: string): boolean => {
+    if (schemaRoot === undefined) return false;
+    const parentSchema = resolvePointer(schemaRoot, parentLocation(owner.keywordLocation));
+    if (!isPlainObject(parentSchema)) return false;
+    const tuple = parentSchema['items'] ?? parentSchema['prefixItems'];
+    return Array.isArray(tuple) && Number(index) < tuple.length;
+  };
+
   // A `false` subschema reached through additionalProperties (etc.) reports
   // "False boolean schema." Report it as the remainder keyword that rejected it.
   const relabelled = errors.map((error) => {
@@ -313,7 +328,9 @@ function toValidationErrors(errors: OutputUnit[]): ValidationError[] {
       (candidate) =>
         REMAINDER_KEYWORDS.has(candidate.keyword) &&
         candidate.instanceLocation === parent &&
-        (REMAINDER_ITEM_KEYWORDS.has(candidate.keyword) || candidate.error.includes(`"${name}"`))
+        (REMAINDER_ITEM_KEYWORDS.has(candidate.keyword)
+          ? !isTupleIndex(candidate, name)
+          : candidate.error.includes(`"${name}"`))
     );
     return owner ? { ...error, keyword: owner.keyword, error: owner.error } : error;
   });
@@ -336,50 +353,78 @@ function toValidationErrors(errors: OutputUnit[]): ValidationError[] {
 }
 
 /**
- * Copy data for validation, dropping object properties whose value is `undefined`
- * (Ajv, and JSON, treat those as absent).
+ * Prepare data for validation the way Ajv saw it as JSON: object properties set to
+ * `undefined` are absent, and non-finite numbers (which JSON writes as null) are null.
+ * Returns the input itself when nothing needs changing, so clean data is not copied.
  */
-function withoutUndefined(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(withoutUndefined);
-  if (!isPlainObject(value)) return value;
-  const out: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value)) {
-    if (child !== undefined) out[key] = withoutUndefined(child);
+function normalizeData(value: unknown): unknown {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'object' || value === null || value instanceof Date) return value;
+
+  if (Array.isArray(value)) {
+    let copy: unknown[] | undefined;
+    value.forEach((child: unknown, index) => {
+      const next = normalizeData(child);
+      if (next !== child) {
+        copy ??= value.slice();
+        copy[index] = next;
+      }
+    });
+    return copy ?? value;
   }
-  return out;
+
+  const entries = Object.entries(value);
+  let changed = false;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of entries) {
+    if (child === undefined) {
+      changed = true;
+      continue;
+    }
+    const next = normalizeData(child);
+    if (next !== child) changed = true;
+    out[key] = next;
+  }
+  return changed ? out : value;
 }
+
+/** Errors the validator throws for values JSON cannot represent. */
+const UNREPRESENTABLE_VALUE = /^Instances of ".*" type are not supported\.$|^URI malformed$/;
 
 /**
  * Compile a JSON Schema.
- * @throws Error if the schema is invalid against its draft's meta-schema, or a local `$ref` does not resolve.
+ * @throws Error if the schema is invalid against its draft's meta-schema, or a `$ref` does not resolve.
  */
 export function compileSchema(schema: unknown, options: CompileOptions): CompiledSchema {
-  const draft = detectDraft(schema, options.draft);
-  checkAgainstMetaSchema(schema, draft);
-  checkLocalRefs(schema);
+  const clean = deepCopy(schema);
+  const draft = detectDraft(clean, options.draft);
+  checkAgainstMetaSchema(clean, draft, options.stripFormats);
 
-  const prepared = prepareSchema(schema, {
+  const prepared = prepareSchema(clean, {
     stripFormats: options.stripFormats,
     wrapRefSiblings: draft === '4' || draft === '7',
   });
   const validator = new Validator(prepared as CfworkerSchema, draft, !options.allErrors);
+  checkRefsResolve(prepared, validator);
 
   return {
     validate<T>(data: unknown): ValidationResult<T> {
       let result: ReturnType<Validator['validate']>;
       try {
-        result = validator.validate(withoutUndefined(data));
+        result = validator.validate(normalizeData(data));
       } catch (cause) {
         // The validator throws for values JSON cannot represent (undefined, BigInt,
-        // functions) and for some malformed keys. Report those as validation failures.
+        // functions) and for malformed keys. Report those as validation failures;
+        // anything else is a real fault and propagates.
         const reason = cause instanceof Error ? cause.message : String(cause);
+        if (!UNREPRESENTABLE_VALUE.test(reason)) throw cause;
         return {
           success: false,
           errors: [{ path: [], message: `Value cannot be validated: ${reason}`, code: 'type' }],
         };
       }
       if (!result.valid) {
-        return { success: false, errors: toValidationErrors(result.errors) };
+        return { success: false, errors: toValidationErrors(result.errors, prepared) };
       }
       return { success: true, data: data as T };
     },
