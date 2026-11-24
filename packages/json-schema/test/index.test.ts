@@ -298,7 +298,7 @@ describe('validation errors', () => {
     expect(result.errors!.some((e) => e.code === 'properties' || e.code === 'items')).toBe(false);
   });
 
-  it('should report additionalProperties without the boolean-schema echo', () => {
+  it('should report additionalProperties: false as the keyword at the extra property', () => {
     const schema = fromJsonSchema('1.0.0', {
       type: 'object',
       properties: { name: { type: 'string' } },
@@ -308,8 +308,49 @@ describe('validation errors', () => {
     const result = schema.schema({ name: 'x', extra: 1 });
     expect(result.success).toBe(false);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors![0].code).toBe('additionalProperties');
+    expect(result.errors![0]).toMatchObject({ code: 'additionalProperties', path: ['extra'] });
     expect(result.errors![0].message).toContain('extra');
+  });
+
+  it('should report only the subschema error for additionalProperties with a schema', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+    });
+
+    const result = schema.schema({ x: 1 });
+    expect(result.errors).toEqual([expect.objectContaining({ code: 'type', path: ['x'] })]);
+  });
+
+  it('should report additionalItems: false at the extra item', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'array',
+      items: [{ type: 'string' }],
+      additionalItems: false,
+    });
+
+    const result = schema.schema(['x', 2]);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: 'additionalItems', path: ['1'] }),
+    ]);
+  });
+
+  it('should keep false-subschema errors alongside other errors', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { a: false, b: { type: 'string' } },
+      additionalProperties: false,
+    });
+
+    const result = schema.schema({ a: 1, b: 1, x: 1 });
+    expect(result.errors!.map((e) => [e.code, e.path.join('/')])).toEqual(
+      expect.arrayContaining([
+        ['false', 'a'],
+        ['type', 'b'],
+        ['additionalProperties', 'x'],
+      ])
+    );
+    expect(result.errors).toHaveLength(3);
   });
 
   it('should decode JSON pointer escapes in paths', () => {
@@ -333,6 +374,119 @@ describe('validation errors', () => {
     const result = schema.schema({ id: '' });
     expect(result.success).toBe(false);
     expect(result.errors![0].path).toEqual(['id']);
+  });
+});
+
+describe('Ajv compatibility', () => {
+  it('should treat properties set to undefined as absent', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { a: { type: 'string' }, b: { type: 'string' } },
+      required: ['a'],
+    });
+
+    const input = { a: 'x', b: undefined };
+    const ok = schema.schema(input);
+    expect(ok.success).toBe(true);
+    expect(ok.data).toBe(input);
+
+    const missing = schema.schema({ a: undefined });
+    expect(missing.success).toBe(false);
+    expect(missing.errors![0]).toMatchObject({ code: 'required', path: [] });
+  });
+
+  it('should return an error instead of throwing for values JSON cannot represent', () => {
+    const schema = fromJsonSchema('1.0.0', { type: 'object' });
+
+    expect(schema.schema(undefined)).toMatchObject({ success: false });
+    expect(
+      fromJsonSchema('1.0.0', { properties: { n: { type: 'number' } } }).schema({ n: 1n })
+    ).toMatchObject({ success: false });
+    expect(
+      fromJsonSchema('1.0.0', { additionalProperties: { type: 'string' } }).schema({ '\uD800': 1 })
+    ).toMatchObject({ success: false });
+    expect(createFieldSchema({ type: 'string' }).validate(undefined).success).toBe(false);
+  });
+
+  it('should apply constraints beside $ref in draft-07', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      definitions: { obj: { type: 'object' } },
+      $ref: '#/definitions/obj',
+      required: ['a'],
+    });
+
+    expect(schema.schema({ a: 1 }).success).toBe(true);
+    const result = schema.schema({});
+    expect(result.success).toBe(false);
+    expect(result.errors![0].code).toBe('required');
+    expect(schema.schema('nope').success).toBe(false);
+  });
+
+  it('should use the draft named by $schema', () => {
+    const draft4 = fromJsonSchema('1.0.0', {
+      $schema: 'http://json-schema.org/draft-04/schema#',
+      type: 'number',
+      minimum: 0,
+      exclusiveMinimum: true,
+    } as unknown as JSONSchema);
+    expect(draft4.schema(1).success).toBe(true);
+    expect(draft4.schema(0).success).toBe(false);
+
+    const draft2020 = fromJsonSchema('1.0.0', {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      type: 'array',
+      prefixItems: [{ type: 'string' }],
+    } as JSONSchema);
+    expect(draft2020.schema(['a']).success).toBe(true);
+    expect(draft2020.schema([1]).success).toBe(false);
+  });
+
+  it('should reject invalid schemas when they are compiled', () => {
+    expect(() => fromJsonSchema('1.0.0', { type: 'strin' } as unknown as JSONSchema)).toThrow(
+      /Invalid JSON Schema/
+    );
+    expect(() => fromJsonSchema('1.0.0', { required: 'name' } as unknown as JSONSchema)).toThrow(
+      /Invalid JSON Schema/
+    );
+    expect(() => createFieldSchema({ minimum: 'zero' } as unknown as JSONSchema)).toThrow(
+      /Invalid JSON Schema/
+    );
+  });
+
+  it('should reject unresolvable local $refs when they are compiled', () => {
+    expect(() =>
+      fromJsonSchema('1.0.0', {
+        type: 'object',
+        properties: { a: { $ref: '#/definitions/missing' } },
+      })
+    ).toThrow(/does not resolve/);
+  });
+
+  it('should strip formats reached through $ref outside definitions', () => {
+    const plugin = createJsonSchemaPlugin({ useFormats: false });
+    const schema = plugin.fromJsonSchema('1.0.0', {
+      components: { email: { type: 'string', format: 'email' } },
+      $ref: '#/components/email',
+    } as JSONSchema);
+
+    expect(schema.schema('nope').success).toBe(true);
+    expect(schema.schema(1).success).toBe(false);
+  });
+
+  it('should leave format-like data in const, enum and default alone', () => {
+    const plugin = createJsonSchemaPlugin({ useFormats: false });
+    const schema = plugin.fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: {
+        a: { const: { format: 'email' } },
+        b: { enum: [{ format: 'x' }] },
+      },
+    });
+
+    expect(schema.schema({ a: { format: 'email' } }).success).toBe(true);
+    expect(schema.schema({ a: {} }).success).toBe(false);
+    expect(schema.schema({ b: { format: 'x' } }).success).toBe(true);
+    expect(schema.schema({ b: {} }).success).toBe(false);
   });
 });
 

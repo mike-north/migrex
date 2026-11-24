@@ -7,27 +7,24 @@
  * @packageDocumentation
  */
 
-import { Validator } from '@cfworker/json-schema';
-import type { OutputUnit, Schema as CfworkerSchema } from '@cfworker/json-schema';
-import type { VersionedSchema, ValidationResult, ValidationError, FieldSchema } from '@migrex/core';
+import type { VersionedSchema, ValidationResult, FieldSchema } from '@migrex/core';
 import type { JSONSchema7 } from 'json-schema';
+import { compileSchema, type CompiledSchema, type JsonSchemaDraft } from './validator.js';
 
 /**
  * Re-export JSONSchema7 type for convenience.
  */
 export type { JSONSchema7 as JSONSchema };
 
-/**
- * JSON Schema drafts supported by the validator.
- */
-export type JsonSchemaDraft = '4' | '7' | '2019-09' | '2020-12';
+export type { JsonSchemaDraft };
 
 /**
  * Options for creating a JSON Schema plugin.
  */
 export interface JsonSchemaPluginOptions {
   /**
-   * The JSON Schema draft used to interpret schemas.
+   * The JSON Schema draft used to interpret schemas that do not declare one.
+   * A recognised `$schema` URI in a schema takes precedence.
    * @defaultValue '7'
    */
   draft?: JsonSchemaDraft;
@@ -77,137 +74,6 @@ export interface FromJsonSchemaOptions<T> {
 }
 
 /**
- * Keywords whose errors only summarize failures in a subschema.
- * The subschema's own errors are more specific, so these are dropped.
- */
-const SUMMARY_KEYWORDS = new Set([
-  'properties',
-  'patternProperties',
-  'items',
-  'prefixItems',
-  'additionalItems',
-  'allOf',
-  '$ref',
-  '$recursiveRef',
-  'dependentSchemas',
-  'dependencies',
-  'propertyNames',
-  'if',
-  'then',
-  'else',
-]);
-
-/**
- * Keywords whose values are a single subschema.
- */
-const SINGLE_SCHEMA_KEYWORDS = [
-  'not',
-  'if',
-  'then',
-  'else',
-  'items',
-  'additionalItems',
-  'additionalProperties',
-  'unevaluatedItems',
-  'unevaluatedProperties',
-  'contains',
-  'propertyNames',
-] as const;
-
-/**
- * Keywords whose values are arrays of subschemas.
- */
-const ARRAY_SCHEMA_KEYWORDS = ['allOf', 'anyOf', 'oneOf', 'items', 'prefixItems'] as const;
-
-/**
- * Keywords whose values are maps of name to subschema.
- */
-const MAP_SCHEMA_KEYWORDS = [
-  'properties',
-  'patternProperties',
-  'definitions',
-  '$defs',
-  'dependentSchemas',
-  'dependencies',
-] as const;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Deep-copy a schema, optionally dropping every `format` keyword.
- * The validator annotates the schema it is given, so callers' schemas are never passed in directly.
- */
-function prepareSchema(schema: unknown, stripFormats: boolean): unknown {
-  if (Array.isArray(schema)) return schema.map((s) => prepareSchema(s, stripFormats));
-  if (!isPlainObject(schema)) return schema;
-
-  const copy: Record<string, unknown> = structuredClone(schema);
-  if (!stripFormats) return copy;
-
-  const strip = (node: unknown): void => {
-    if (!isPlainObject(node)) return;
-    if (typeof node['format'] === 'string') delete node['format'];
-    for (const key of SINGLE_SCHEMA_KEYWORDS) {
-      if (!Array.isArray(node[key])) strip(node[key]);
-    }
-    for (const key of ARRAY_SCHEMA_KEYWORDS) {
-      const value = node[key];
-      if (Array.isArray(value)) value.forEach(strip);
-    }
-    for (const key of MAP_SCHEMA_KEYWORDS) {
-      const value = node[key];
-      if (isPlainObject(value)) Object.values(value).forEach(strip);
-    }
-  };
-  strip(copy);
-  return copy;
-}
-
-/**
- * Convert a validator instance location (e.g. "#/foo/bar/0") to a path array.
- */
-function instanceLocationToPath(instanceLocation: string): string[] {
-  const pointer = instanceLocation.startsWith('#') ? instanceLocation.slice(1) : instanceLocation;
-  if (!pointer) return [];
-  return pointer
-    .split('/')
-    .slice(1)
-    .map((segment) => decodeURIComponent(segment).replace(/~1/g, '/').replace(/~0/g, '~'));
-}
-
-/**
- * Convert validator output to migrex ValidationErrors, keeping the most specific errors.
- */
-function toValidationErrors(errors: OutputUnit[]): ValidationError[] {
-  let specific = errors.filter((e) => !SUMMARY_KEYWORDS.has(e.keyword));
-  if (specific.length === 0) specific = errors;
-
-  // A `false` subschema error ("False boolean schema.") is redundant when its
-  // parent keyword (e.g. additionalProperties) already reported the failure.
-  const withoutFalse = specific.filter((e) => e.keyword !== 'false');
-  if (withoutFalse.length > 0) specific = withoutFalse;
-
-  return specific.map((error) => ({
-    path: instanceLocationToPath(error.instanceLocation),
-    message: error.error,
-    code: error.keyword,
-  }));
-}
-
-/**
- * Validate data with a compiled validator and convert the result.
- */
-function runValidator<T>(validator: Validator, data: unknown): ValidationResult<T> {
-  const result = validator.validate(data);
-  if (!result.valid) {
-    return { success: false, errors: toValidationErrors(result.errors) };
-  }
-  return { success: true, data: data as T };
-}
-
-/**
  * A JSON Schema plugin instance with a pre-configured validator.
  */
 export interface JsonSchemaPlugin {
@@ -222,7 +88,7 @@ export interface JsonSchemaPlugin {
   readonly name: string;
 
   /**
-   * The JSON Schema draft this plugin validates against.
+   * The JSON Schema draft used for schemas that do not declare a `$schema`.
    */
   readonly draft: JsonSchemaDraft;
 
@@ -268,11 +134,11 @@ export interface JsonSchemaPlugin {
  */
 export function createJsonSchemaPlugin(options?: JsonSchemaPluginOptions): JsonSchemaPlugin {
   const draft: JsonSchemaDraft = options?.draft ?? '7';
-  const shortCircuit = options?.allErrors === false;
+  const allErrors = options?.allErrors !== false;
   const stripFormats = options?.useFormats === false;
 
-  const compile = (schema: JSONSchema7): Validator =>
-    new Validator(prepareSchema(schema, stripFormats) as CfworkerSchema, draft, shortCircuit);
+  const compile = (schema: JSONSchema7): CompiledSchema =>
+    compileSchema(schema, { draft, allErrors, stripFormats });
 
   return {
     id: 'json-schema',
@@ -290,7 +156,7 @@ export function createJsonSchemaPlugin(options?: JsonSchemaPluginOptions): JsonS
         version,
 
         schema(data: unknown): ValidationResult<T> {
-          return runValidator<T>(validator, data);
+          return validator.validate<T>(data);
         },
 
         ...(opts?.validate !== undefined && { validate: opts.validate }),
@@ -304,7 +170,7 @@ export function createJsonSchemaPlugin(options?: JsonSchemaPluginOptions): JsonS
 
       return {
         validate(value: unknown): ValidationResult<unknown> {
-          return runValidator<unknown>(validator, value);
+          return validator.validate<unknown>(value);
         },
 
         describe(): string {

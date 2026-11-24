@@ -319,9 +319,11 @@ Create a custom JSON Schema plugin with specific validator configuration.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `draft` | `'4' \| '7' \| '2019-09' \| '2020-12'` | `'7'` | JSON Schema draft |
+| `draft` | `'4' \| '7' \| '2019-09' \| '2020-12'` | `'7'` | JSON Schema draft for schemas without a recognised `$schema` |
 | `allErrors` | `boolean` | `true` | Report every error rather than stopping at the first |
 | `useFormats` | `boolean` | `true` | Check `format` keywords |
+
+Schemas are checked when compiled: draft-04 and draft-07 schemas against their meta-schema, and local `#/...` `$ref`s must resolve. An invalid schema throws from `fromJsonSchema` / `createFieldSchema`.
 
 ### `createFieldSchema(schema, options?)`
 
