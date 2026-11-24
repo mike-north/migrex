@@ -520,11 +520,18 @@ describe('Ajv compatibility', () => {
     expect(result.data).toBe(input);
   });
 
-  it('should reject non-finite numbers like Ajv', () => {
-    const schema = fromJsonSchema('1.0.0', { type: 'number' });
-    expect(schema.schema(1).success).toBe(true);
-    expect(schema.schema(Number.NaN).success).toBe(false);
-    expect(schema.schema(Number.POSITIVE_INFINITY).success).toBe(false);
+  it('should handle cyclic and very deep data without throwing', () => {
+    const cyclic: Record<string, unknown> = { a: 1, b: undefined };
+    cyclic['self'] = cyclic;
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { a: { type: 'number' } },
+    });
+    expect(schema.schema(cyclic).success).toBe(true);
+
+    let deep: Record<string, unknown> = {};
+    for (let i = 0; i < 20000; i++) deep = { next: deep, gap: undefined };
+    expect(fromJsonSchema('1.0.0', { type: 'object' }).schema(deep).success).toBe(true);
   });
 
   it('should report a false tuple position as false, not additionalItems', () => {

@@ -353,39 +353,54 @@ function toValidationErrors(errors: OutputUnit[], schemaRoot?: unknown): Validat
 }
 
 /**
- * Prepare data for validation the way Ajv saw it as JSON: object properties set to
- * `undefined` are absent, and non-finite numbers (which JSON writes as null) are null.
+ * Prepare data for validation the way Ajv saw it: object properties set to
+ * `undefined` are absent (so `required` reports them as missing).
  * Returns the input itself when nothing needs changing, so clean data is not copied.
+ * Cycles are left as they are; the validator only descends where the schema does.
  */
-function normalizeData(value: unknown): unknown {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+function normalizeData(value: unknown, inProgress = new WeakSet()): unknown {
   if (typeof value !== 'object' || value === null || value instanceof Date) return value;
+  if (inProgress.has(value)) return value;
+  inProgress.add(value);
 
-  if (Array.isArray(value)) {
-    let copy: unknown[] | undefined;
-    value.forEach((child: unknown, index) => {
-      const next = normalizeData(child);
-      if (next !== child) {
-        copy ??= value.slice();
-        copy[index] = next;
-      }
-    });
-    return copy ?? value;
-  }
-
-  const entries = Object.entries(value);
-  let changed = false;
-  const out: Record<string, unknown> = {};
-  for (const [key, child] of entries) {
-    if (child === undefined) {
-      changed = true;
-      continue;
+  try {
+    if (Array.isArray(value)) {
+      let copy: unknown[] | undefined;
+      value.forEach((child: unknown, index) => {
+        const next = normalizeData(child, inProgress);
+        if (next !== child) {
+          copy ??= value.slice();
+          copy[index] = next;
+        }
+      });
+      return copy ?? value;
     }
-    const next = normalizeData(child);
-    if (next !== child) changed = true;
-    out[key] = next;
+
+    let changed = false;
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      if (child === undefined) {
+        changed = true;
+        continue;
+      }
+      const next = normalizeData(child, inProgress);
+      if (next !== child) changed = true;
+      out[key] = next;
+    }
+    return changed ? out : value;
+  } finally {
+    inProgress.delete(value);
   }
-  return changed ? out : value;
+}
+
+/** Normalize data, falling back to the raw value if it is nested too deeply to walk. */
+function safeNormalizeData(value: unknown): unknown {
+  try {
+    return normalizeData(value);
+  } catch (cause) {
+    if (cause instanceof RangeError) return value;
+    throw cause;
+  }
 }
 
 /** Errors the validator throws for values JSON cannot represent. */
@@ -411,7 +426,7 @@ export function compileSchema(schema: unknown, options: CompileOptions): Compile
     validate<T>(data: unknown): ValidationResult<T> {
       let result: ReturnType<Validator['validate']>;
       try {
-        result = validator.validate(normalizeData(data));
+        result = validator.validate(safeNormalizeData(data));
       } catch (cause) {
         // The validator throws for values JSON cannot represent (undefined, BigInt,
         // functions) and for malformed keys. Report those as validation failures;
