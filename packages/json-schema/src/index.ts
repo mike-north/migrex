@@ -7,26 +7,10 @@
  * @packageDocumentation
  */
 
-import { Ajv } from 'ajv';
-import type { ErrorObject, Options as AjvOptions, ValidateFunction, AnySchema } from 'ajv';
-import * as addFormatsModule from 'ajv-formats';
-import type { FormatsPlugin } from 'ajv-formats';
-import type {
-  VersionedSchema,
-  ValidationResult,
-  ValidationError,
-  FieldSchema,
-} from '@migrex/core';
+import { Validator } from '@cfworker/json-schema';
+import type { OutputUnit, Schema as CfworkerSchema } from '@cfworker/json-schema';
+import type { VersionedSchema, ValidationResult, ValidationError, FieldSchema } from '@migrex/core';
 import type { JSONSchema7 } from 'json-schema';
-
-// Handle ajv-formats ESM/CJS interop - it only has a default export
-// Cast the namespace import to access the default export without esModuleInterop
-const addFormats: FormatsPlugin = (
-  addFormatsModule as unknown as { default: FormatsPlugin }
-).default;
-
-/** Type alias for Ajv instance */
-type AjvInstance = InstanceType<typeof Ajv>;
 
 /**
  * Re-export JSONSchema7 type for convenience.
@@ -34,18 +18,30 @@ type AjvInstance = InstanceType<typeof Ajv>;
 export type { JSONSchema7 as JSONSchema };
 
 /**
+ * JSON Schema drafts supported by the validator.
+ */
+export type JsonSchemaDraft = '4' | '7' | '2019-09' | '2020-12';
+
+/**
  * Options for creating a JSON Schema plugin.
  */
 export interface JsonSchemaPluginOptions {
   /**
-   * Additional Ajv options.
-   * @see https://ajv.js.org/options.html
+   * The JSON Schema draft used to interpret schemas.
+   * @defaultValue '7'
    */
-  ajvOptions?: AjvOptions;
+  draft?: JsonSchemaDraft;
 
   /**
-   * Whether to add format validators (e.g., email, uri, date-time).
-   * @default true
+   * Whether to collect every validation error rather than stopping at the first one.
+   * @defaultValue true
+   */
+  allErrors?: boolean;
+
+  /**
+   * Whether to check the `format` keyword (e.g., email, uri, date-time).
+   * When false, `format` is treated as an annotation only.
+   * @defaultValue true
    */
   useFormats?: boolean;
 }
@@ -81,31 +77,138 @@ export interface FromJsonSchemaOptions<T> {
 }
 
 /**
- * Convert an Ajv error path to a string array.
+ * Keywords whose errors only summarize failures in a subschema.
+ * The subschema's own errors are more specific, so these are dropped.
  */
-function instancePathToArray(instancePath: string): string[] {
-  if (!instancePath) return [];
-  // instancePath is like "/foo/bar/0" - split and filter empty strings
-  return instancePath.split('/').filter(Boolean);
+const SUMMARY_KEYWORDS = new Set([
+  'properties',
+  'patternProperties',
+  'items',
+  'prefixItems',
+  'additionalItems',
+  'allOf',
+  '$ref',
+  '$recursiveRef',
+  'dependentSchemas',
+  'dependencies',
+  'propertyNames',
+  'if',
+  'then',
+  'else',
+]);
+
+/**
+ * Keywords whose values are a single subschema.
+ */
+const SINGLE_SCHEMA_KEYWORDS = [
+  'not',
+  'if',
+  'then',
+  'else',
+  'items',
+  'additionalItems',
+  'additionalProperties',
+  'unevaluatedItems',
+  'unevaluatedProperties',
+  'contains',
+  'propertyNames',
+] as const;
+
+/**
+ * Keywords whose values are arrays of subschemas.
+ */
+const ARRAY_SCHEMA_KEYWORDS = ['allOf', 'anyOf', 'oneOf', 'items', 'prefixItems'] as const;
+
+/**
+ * Keywords whose values are maps of name to subschema.
+ */
+const MAP_SCHEMA_KEYWORDS = [
+  'properties',
+  'patternProperties',
+  'definitions',
+  '$defs',
+  'dependentSchemas',
+  'dependencies',
+] as const;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
- * Convert Ajv errors to migrex ValidationErrors.
+ * Deep-copy a schema, optionally dropping every `format` keyword.
+ * The validator annotates the schema it is given, so callers' schemas are never passed in directly.
  */
-function ajvErrorsToValidationErrors(
-  errors: ErrorObject[] | null | undefined
-): ValidationError[] {
-  if (!errors) return [];
+function prepareSchema(schema: unknown, stripFormats: boolean): unknown {
+  if (Array.isArray(schema)) return schema.map((s) => prepareSchema(s, stripFormats));
+  if (!isPlainObject(schema)) return schema;
 
-  return errors.map((error) => ({
-    path: instancePathToArray(error.instancePath),
-    message: error.message ?? 'Validation failed',
+  const copy: Record<string, unknown> = structuredClone(schema);
+  if (!stripFormats) return copy;
+
+  const strip = (node: unknown): void => {
+    if (!isPlainObject(node)) return;
+    if (typeof node['format'] === 'string') delete node['format'];
+    for (const key of SINGLE_SCHEMA_KEYWORDS) {
+      if (!Array.isArray(node[key])) strip(node[key]);
+    }
+    for (const key of ARRAY_SCHEMA_KEYWORDS) {
+      const value = node[key];
+      if (Array.isArray(value)) value.forEach(strip);
+    }
+    for (const key of MAP_SCHEMA_KEYWORDS) {
+      const value = node[key];
+      if (isPlainObject(value)) Object.values(value).forEach(strip);
+    }
+  };
+  strip(copy);
+  return copy;
+}
+
+/**
+ * Convert a validator instance location (e.g. "#/foo/bar/0") to a path array.
+ */
+function instanceLocationToPath(instanceLocation: string): string[] {
+  const pointer = instanceLocation.startsWith('#') ? instanceLocation.slice(1) : instanceLocation;
+  if (!pointer) return [];
+  return pointer
+    .split('/')
+    .slice(1)
+    .map((segment) => decodeURIComponent(segment).replace(/~1/g, '/').replace(/~0/g, '~'));
+}
+
+/**
+ * Convert validator output to migrex ValidationErrors, keeping the most specific errors.
+ */
+function toValidationErrors(errors: OutputUnit[]): ValidationError[] {
+  let specific = errors.filter((e) => !SUMMARY_KEYWORDS.has(e.keyword));
+  if (specific.length === 0) specific = errors;
+
+  // A `false` subschema error ("False boolean schema.") is redundant when its
+  // parent keyword (e.g. additionalProperties) already reported the failure.
+  const withoutFalse = specific.filter((e) => e.keyword !== 'false');
+  if (withoutFalse.length > 0) specific = withoutFalse;
+
+  return specific.map((error) => ({
+    path: instanceLocationToPath(error.instanceLocation),
+    message: error.error,
     code: error.keyword,
   }));
 }
 
 /**
- * A JSON Schema plugin instance with a pre-configured Ajv validator.
+ * Validate data with a compiled validator and convert the result.
+ */
+function runValidator<T>(validator: Validator, data: unknown): ValidationResult<T> {
+  const result = validator.validate(data);
+  if (!result.valid) {
+    return { success: false, errors: toValidationErrors(result.errors) };
+  }
+  return { success: true, data: data as T };
+}
+
+/**
+ * A JSON Schema plugin instance with a pre-configured validator.
  */
 export interface JsonSchemaPlugin {
   /**
@@ -119,9 +222,9 @@ export interface JsonSchemaPlugin {
   readonly name: string;
 
   /**
-   * The underlying Ajv instance.
+   * The JSON Schema draft this plugin validates against.
    */
-  readonly ajv: AjvInstance;
+  readonly draft: JsonSchemaDraft;
 
   /**
    * Create a versioned schema from a JSON Schema.
@@ -135,10 +238,7 @@ export interface JsonSchemaPlugin {
   /**
    * Create a field schema from a JSON Schema for use with the preservation stash.
    */
-  createFieldSchema(
-    schema: JSONSchema7,
-    options?: { description?: string }
-  ): FieldSchema;
+  createFieldSchema(schema: JSONSchema7, options?: { description?: string }): FieldSchema;
 }
 
 /**
@@ -149,7 +249,8 @@ export interface JsonSchemaPlugin {
  * import { createJsonSchemaPlugin } from '@migrex/json-schema';
  *
  * const plugin = createJsonSchemaPlugin({
- *   ajvOptions: { allErrors: true },
+ *   draft: '7',
+ *   allErrors: true,
  * });
  *
  * const schema = plugin.fromJsonSchema('1.0.0', {
@@ -165,50 +266,31 @@ export interface JsonSchemaPlugin {
  * @param options - Plugin configuration options
  * @returns A configured JSON Schema plugin
  */
-export function createJsonSchemaPlugin(
-  options?: JsonSchemaPluginOptions
-): JsonSchemaPlugin {
-  const ajv: AjvInstance = new Ajv({
-    allErrors: true,
-    strict: true,
-    ...options?.ajvOptions,
-  });
+export function createJsonSchemaPlugin(options?: JsonSchemaPluginOptions): JsonSchemaPlugin {
+  const draft: JsonSchemaDraft = options?.draft ?? '7';
+  const shortCircuit = options?.allErrors === false;
+  const stripFormats = options?.useFormats === false;
 
-  // Add format validators by default
-  if (options?.useFormats !== false) {
-    addFormats(ajv);
-  }
+  const compile = (schema: JSONSchema7): Validator =>
+    new Validator(prepareSchema(schema, stripFormats) as CfworkerSchema, draft, shortCircuit);
 
   return {
     id: 'json-schema',
     name: 'JSON Schema Plugin',
-    ajv,
+    draft,
 
     fromJsonSchema<T = unknown>(
       version: string,
       schema: JSONSchema7,
       opts?: FromJsonSchemaOptions<T>
     ): VersionedSchema<T> {
-      // JSONSchema7 is compatible with Ajv's AnySchema at runtime
-      const validate: ValidateFunction<T> = ajv.compile<T>(schema as AnySchema);
+      const validator = compile(schema);
 
       return {
         version,
 
         schema(data: unknown): ValidationResult<T> {
-          const valid = validate(data);
-
-          if (!valid) {
-            return {
-              success: false,
-              errors: ajvErrorsToValidationErrors(validate.errors),
-            };
-          }
-
-          return {
-            success: true,
-            data,
-          };
+          return runValidator<T>(validator, data);
         },
 
         ...(opts?.validate !== undefined && { validate: opts.validate }),
@@ -217,28 +299,12 @@ export function createJsonSchemaPlugin(
       };
     },
 
-    createFieldSchema(
-      schema: JSONSchema7,
-      opts?: { description?: string }
-    ): FieldSchema {
-      // JSONSchema7 is compatible with Ajv's AnySchema at runtime
-      const validate: ValidateFunction = ajv.compile(schema as AnySchema);
+    createFieldSchema(schema: JSONSchema7, opts?: { description?: string }): FieldSchema {
+      const validator = compile(schema);
 
       return {
         validate(value: unknown): ValidationResult<unknown> {
-          const valid = validate(value);
-
-          if (!valid) {
-            return {
-              success: false,
-              errors: ajvErrorsToValidationErrors(validate.errors),
-            };
-          }
-
-          return {
-            success: true,
-            data: value,
-          };
+          return runValidator<unknown>(validator, value);
         },
 
         describe(): string {
@@ -328,13 +394,9 @@ export function createFieldSchema(
 
 /**
  * The default JSON Schema plugin instance.
- * Use this to access the underlying Ajv instance or for advanced usage.
+ * Use this for advanced usage.
  */
 export const jsonSchemaPlugin = defaultPlugin;
 
 // Export schema extension utilities
-export {
-  extendJsonSchema,
-  omitFromJsonSchema,
-  type ExtendJsonSchemaOptions,
-} from './extend.js';
+export { extendJsonSchema, omitFromJsonSchema, type ExtendJsonSchemaOptions } from './extend.js';

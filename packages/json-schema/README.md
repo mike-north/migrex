@@ -4,16 +4,16 @@ JSON Schema integration for migrex - use JSON Schema definitions as versioned sc
 
 ## Features
 
-- **Ajv-powered validation** - Full JSON Schema draft-07 support via Ajv
+- **Lightweight validation** - JSON Schema drafts 4, 7, 2019-09 and 2020-12 via [`@cfworker/json-schema`](https://github.com/cfworker/cfworker/tree/main/packages/json-schema), with no Ajv dependency
 - **Format validators** - Built-in support for email, uri, date-time, and other formats
 - **Schema extension** - Extend schemas across versions without duplication
 - **Field schemas** - Create validated field schemas for the preservation stash
-- **Custom Ajv options** - Configure Ajv with your preferred settings
+- **Configurable** - Choose the draft, all-errors mode, and format checking
 
 ## Installation
 
 ```bash
-npm install @migrex/json-schema @migrex/core ajv
+npm install @migrex/json-schema @migrex/core
 ```
 
 ## Usage
@@ -47,11 +47,9 @@ graph.registerSchema(schemaV1);
 import { createJsonSchemaPlugin } from '@migrex/json-schema';
 
 const plugin = createJsonSchemaPlugin({
-  ajvOptions: {
-    allErrors: true,
-    coerceTypes: true,
-  },
-  useFormats: true, // Enable format validators (default)
+  draft: '7', // JSON Schema draft (default '7'; also '4', '2019-09', '2020-12')
+  allErrors: true, // Report every error, not just the first (default)
+  useFormats: true, // Check `format` keywords (default)
 });
 
 const schema = plugin.fromJsonSchema('1.0.0', {
@@ -317,12 +315,13 @@ Create a versioned schema from a JSON Schema using the default plugin.
 
 ### `createJsonSchemaPlugin(options?)`
 
-Create a custom JSON Schema plugin with specific Ajv configuration.
+Create a custom JSON Schema plugin with specific validator configuration.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `ajvOptions` | `AjvOptions` | `{ allErrors: true, strict: true }` | Ajv configuration |
-| `useFormats` | `boolean` | `true` | Enable format validators |
+| `draft` | `'4' \| '7' \| '2019-09' \| '2020-12'` | `'7'` | JSON Schema draft |
+| `allErrors` | `boolean` | `true` | Report every error rather than stopping at the first |
+| `useFormats` | `boolean` | `true` | Check `format` keywords |
 
 ### `createFieldSchema(schema, options?)`
 

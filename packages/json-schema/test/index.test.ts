@@ -92,21 +92,17 @@ describe('fromJsonSchema', () => {
   });
 
   it('should support custom validate function', () => {
-    const schema = fromJsonSchema<{ name: string; email: string }>(
-      '1.0.0',
-      userSchema,
-      {
-        validate: (data) => {
-          if (data.name.length < 2) {
-            return {
-              success: false,
-              errors: [{ path: ['name'], message: 'Name too short' }],
-            };
-          }
-          return { success: true, data };
-        },
-      }
-    );
+    const schema = fromJsonSchema<{ name: string; email: string }>('1.0.0', userSchema, {
+      validate: (data) => {
+        if (data.name.length < 2) {
+          return {
+            success: false,
+            errors: [{ path: ['name'], message: 'Name too short' }],
+          };
+        }
+        return { success: true, data };
+      },
+    });
 
     expect(schema.validate).toBeDefined();
     const result = schema.validate!({ name: 'A', email: 'a@b.com' });
@@ -204,38 +200,139 @@ describe('fromJsonSchema', () => {
 });
 
 describe('createJsonSchemaPlugin', () => {
-  it('should create a plugin with custom ajv options', () => {
-    const plugin = createJsonSchemaPlugin({
-      ajvOptions: { strict: false },
-    });
+  it('should create a plugin that defaults to draft-07', () => {
+    const plugin = createJsonSchemaPlugin();
 
     expect(plugin.id).toBe('json-schema');
-    expect(plugin.ajv).toBeDefined();
+    expect(plugin.draft).toBe('7');
   });
 
-  it('should allow disabling formats with relaxed strict mode', () => {
-    const plugin = createJsonSchemaPlugin({
-      useFormats: false,
-      ajvOptions: { strict: false },
-    });
+  it('should accept a different draft', () => {
+    const plugin = createJsonSchemaPlugin({ draft: '2020-12' });
+    expect(plugin.draft).toBe('2020-12');
 
-    // This should not validate the email format
+    const schema = plugin.fromJsonSchema('1.0.0', {
+      type: 'array',
+      prefixItems: [{ type: 'string' }, { type: 'number' }],
+    } as JSONSchema);
+
+    expect(schema.schema(['a', 1]).success).toBe(true);
+    expect(schema.schema(['a', 'b']).success).toBe(false);
+  });
+
+  it('should allow disabling formats', () => {
+    const plugin = createJsonSchemaPlugin({ useFormats: false });
+
     const schema = plugin.fromJsonSchema('1.0.0', {
       type: 'object',
       properties: {
         email: { type: 'string', format: 'email' },
+        // A property literally named "format" must survive format stripping
+        format: { type: 'string', enum: ['json'] },
       },
     });
 
-    // With formats disabled and strict: false, 'not-an-email' should pass
-    const result = schema.schema({ email: 'not-an-email' });
-    expect(result.success).toBe(true);
+    // With formats disabled, 'not-an-email' should pass
+    expect(schema.schema({ email: 'not-an-email' }).success).toBe(true);
+    expect(schema.schema({ format: 'yaml' }).success).toBe(false);
   });
 
-  it('should expose the ajv instance', () => {
+  it('should collect all errors by default', () => {
     const plugin = createJsonSchemaPlugin();
-    expect(plugin.ajv).toBeDefined();
-    expect(typeof plugin.ajv.compile).toBe('function');
+    const schema = plugin.fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { a: { type: 'string' }, b: { type: 'string' } },
+    });
+
+    const result = schema.schema({ a: 1, b: 2 });
+    expect(result.success).toBe(false);
+    expect(result.errors!.map((e) => e.path)).toEqual([['a'], ['b']]);
+  });
+
+  it('should stop at the first error when allErrors is false', () => {
+    const plugin = createJsonSchemaPlugin({ allErrors: false });
+    const schema = plugin.fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { a: { type: 'string' }, b: { type: 'string' } },
+    });
+
+    const result = schema.schema({ a: 1, b: 2 });
+    expect(result.success).toBe(false);
+    expect(result.errors).toHaveLength(1);
+  });
+
+  it('should not mutate the schema it is given', () => {
+    const input: JSONSchema = {
+      type: 'object',
+      properties: { email: { type: 'string', format: 'email' } },
+    };
+    const snapshot = structuredClone(input);
+
+    createJsonSchemaPlugin({ useFormats: false }).fromJsonSchema('1.0.0', input);
+    createJsonSchemaPlugin().fromJsonSchema('1.0.0', input);
+
+    expect(input).toEqual(snapshot);
+    expect(Object.getOwnPropertyNames(input)).toEqual(Object.getOwnPropertyNames(snapshot));
+  });
+});
+
+describe('validation errors', () => {
+  it('should report leaf errors with keyword codes and paths', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: {
+        tags: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['tags', 'id'],
+    });
+
+    const result = schema.schema({ tags: ['a', 1] });
+    expect(result.success).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: ['tags', '1'], code: 'type' }),
+        expect.objectContaining({ path: [], code: 'required' }),
+      ])
+    );
+    // Summary errors from applicators like `properties` and `items` are dropped
+    expect(result.errors!.some((e) => e.code === 'properties' || e.code === 'items')).toBe(false);
+  });
+
+  it('should report additionalProperties without the boolean-schema echo', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      additionalProperties: false,
+    });
+
+    const result = schema.schema({ name: 'x', extra: 1 });
+    expect(result.success).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors![0].code).toBe('additionalProperties');
+    expect(result.errors![0].message).toContain('extra');
+  });
+
+  it('should decode JSON pointer escapes in paths', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      type: 'object',
+      properties: { 'a/b~c d': { type: 'string' } },
+    });
+
+    const result = schema.schema({ 'a/b~c d': 1 });
+    expect(result.errors![0].path).toEqual(['a/b~c d']);
+  });
+
+  it('should resolve local $ref definitions', () => {
+    const schema = fromJsonSchema('1.0.0', {
+      definitions: { id: { type: 'string', minLength: 1 } },
+      type: 'object',
+      properties: { id: { $ref: '#/definitions/id' } },
+    });
+
+    expect(schema.schema({ id: 'x' }).success).toBe(true);
+    const result = schema.schema({ id: '' });
+    expect(result.success).toBe(false);
+    expect(result.errors![0].path).toEqual(['id']);
   });
 });
 
@@ -254,10 +351,7 @@ describe('createFieldSchema', () => {
   });
 
   it('should use provided description', () => {
-    const fieldSchema = createFieldSchema(
-      { type: 'string' },
-      { description: 'User avatar URL' }
-    );
+    const fieldSchema = createFieldSchema({ type: 'string' }, { description: 'User avatar URL' });
 
     expect(fieldSchema.describe()).toBe('User avatar URL');
   });
